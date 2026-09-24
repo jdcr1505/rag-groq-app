@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG · Reglamento Académico</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <div class="layout">
+
+    <!-- ───────────────── Panel lateral ───────────────── -->
+    <aside class="panel">
+      <header class="panel__brand">
+        <h1>Consulta<br>de documentos</h1>
+        <p class="panel__subtitle">RAG local + Groq</p>
+      </header>
+
+      <section class="panel__section">
+        <h2>Clave de API</h2>
+        <p id="api-status" class="status status--pending">Verificando…</p>
+      </section>
+
+      <section class="panel__section">
+        <h2>Documentos PDF</h2>
+        <ul id="pdf-list" class="pdf-list"></ul>
+
+        <label class="upload">
+          <input type="file" id="pdf-input" accept=".pdf" multiple hidden>
+          <span>Agregar PDF</span>
+        </label>
+      </section>
+
+      <section class="panel__section">
+        <h2>Base vectorial</h2>
+        <p id="vs-status" class="status status--pending">Comprobando…</p>
+
+        <div class="button-row">
+          <button id="btn-build" class="btn btn--primary">Construir</button>
+          <button id="btn-load" class="btn btn--ghost">Cargar existente</button>
+        </div>
+
+        <pre id="build-log" class="build-log" hidden></pre>
+        <pre id="build-log" class="build-log" hidden></pre>
+
+<button id="btn-indexed" class="btn btn--ghost" style="margin-top:8px;">Ver qué se indexó</button>
+<div id="indexed-panel" class="indexed-panel" hidden></div>
+      </section>
+
+      <section class="panel__section">
+        <h2>Fragmentos a recuperar</h2>
+        <div class="k-control">
+          <input type="range" id="k-slider" min="1" max="15" value="8">
+          <span id="k-value">8</span>
+        </div>
+        <label class="checkbox">
+          <input type="checkbox" id="verbose-toggle" checked>
+          Mostrar fragmentos de origen
+        </label>
+      </section>
+    </aside>
+
+    <!-- ───────────────── Panel de chat ───────────────── -->
+    <main class="chat">
+      <div id="messages" class="chat__messages">
+        <div class="empty-state" id="empty-state">
+          <p>Construye la base vectorial en el panel lateral para empezar a preguntar sobre tus documentos.</p>
+        </div>
+      </div>
+
+      <form id="chat-form" class="chat__form">
+        <input
+          type="text"
+          id="pregunta-input"
+          placeholder="Escribe tu pregunta sobre el documento…"
+          autocomplete="off"
+          disabled
+        >
+        <button type="submit" class="btn btn--primary" disabled>Enviar</button>
+      </form>
+    </main>
+
+  </div>
+
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
