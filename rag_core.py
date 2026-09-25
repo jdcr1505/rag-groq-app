@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
@@ -34,7 +34,7 @@ PDF_DIR = "pdfs"
 PERSIST_DIR = "./chroma"
 COLLECTION_NAME = "mis_programas"
 
-EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
+EMBEDDING_MODEL = "intfloat/multilingual-e5-small"
 GROQ_MODEL = "openai/gpt-oss-120b"
 
 CHUNK_SIZE = 800
@@ -132,11 +132,7 @@ def build_vector_store(
 
     # PASO 3 — Embeddings locales
     log(f"Cargando modelo de embeddings local ({EMBEDDING_MODEL})...")
-    embeddings_model = HuggingFaceEmbeddings(
-        model_name=EMBEDDING_MODEL,
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
-    )
+    embeddings_model = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
 
         # PASO 4 — Almacenamiento en ChromaDB
     client = _get_chroma_client(persist_dir)
@@ -162,11 +158,7 @@ def build_vector_store(
 
 def load_existing_vector_store(persist_dir: str = PERSIST_DIR):
     """Carga una base vectorial ya existente en disco, sin reprocesar los PDFs."""
-    embeddings_model = HuggingFaceEmbeddings(
-        model_name=EMBEDDING_MODEL,
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
-    )
+    embeddings_model = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
     client = _get_chroma_client(persist_dir)
     vector_store = Chroma(
         client=client,
