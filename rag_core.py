@@ -37,6 +37,7 @@ PERSIST_DIR = "./chroma"
 COLLECTION_NAME = "mis_programas"
 
 EMBEDDING_MODEL = "intfloat/multilingual-e5-small"
+EMBEDDING_CACHE_DIR = "./fastembed_cache"
 GROQ_MODEL = "openai/gpt-oss-120b"
 
 CHUNK_SIZE = 800
@@ -162,7 +163,12 @@ def build_vector_store(
         # PASO 3 — Embeddings locales
     log(f"Cargando modelo de embeddings local ({EMBEDDING_MODEL})...")
     _ensure_embedding_model_registered()
-    embeddings_model = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL, batch_size=8)
+    embeddings_model = FastEmbedEmbeddings(
+        model_name=EMBEDDING_MODEL,
+        batch_size=8,
+        cache_dir=EMBEDDING_CACHE_DIR,
+    )
+    
 
         # PASO 4 — Almacenamiento en ChromaDB
     client = _get_chroma_client(persist_dir)
@@ -192,7 +198,11 @@ def build_vector_store(
 def load_existing_vector_store(persist_dir: str = PERSIST_DIR):
     """Carga una base vectorial ya existente en disco, sin reprocesar los PDFs."""
     _ensure_embedding_model_registered()
-    embeddings_model = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
+    embeddings_model = FastEmbedEmbeddings(
+        model_name=EMBEDDING_MODEL,
+        batch_size=8,
+        cache_dir=EMBEDDING_CACHE_DIR,
+    )
     client = _get_chroma_client(persist_dir)
     vector_store = Chroma(
         client=client,
