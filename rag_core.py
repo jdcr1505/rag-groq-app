@@ -17,6 +17,8 @@ from typing import Callable, Optional
 
 from dotenv import load_dotenv
 
+from fastembed import TextEmbedding
+from fastembed.common.model_description import PoolingType, ModelSource
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import FastEmbedEmbeddings
@@ -88,6 +90,33 @@ def list_pdfs(pdf_dir: str = PDF_DIR) -> list:
         return []
     return sorted([f for f in os.listdir(pdf_dir) if f.lower().endswith(".pdf")])
 
+_modelo_embeddings_registrado = False
+
+
+def _ensure_embedding_model_registered():
+    """
+    fastembed no trae 'intfloat/multilingual-e5-small' en su lista de
+    modelos soportados por defecto, aunque el modelo sí existe en
+    HuggingFace. Hay que registrarlo manualmente como modelo
+    personalizado (tal como indica la documentación oficial de fastembed)
+    antes de poder instanciarlo.
+    """
+    global _modelo_embeddings_registrado
+    if _modelo_embeddings_registrado:
+        return
+    try:
+        TextEmbedding.add_custom_model(
+            model=EMBEDDING_MODEL,
+            pooling=PoolingType.MEAN,
+            normalization=True,
+            sources=ModelSource(hf=EMBEDDING_MODEL),
+            dim=384,
+            model_file="onnx/model.onnx",
+        )
+    except ValueError:
+        pass  # ya estaba registrado (por ejemplo, en una llamada anterior)
+    _modelo_embeddings_registrado = True
+
 def build_vector_store(
     pdf_dir: str = PDF_DIR,
     persist_dir: str = PERSIST_DIR,
@@ -130,8 +159,9 @@ def build_vector_store(
     chunks = text_splitter.split_documents(documents)
     log(f"  {len(documents)} páginas -> {len(chunks)} fragmentos")
 
-    # PASO 3 — Embeddings locales
+        # PASO 3 — Embeddings locales
     log(f"Cargando modelo de embeddings local ({EMBEDDING_MODEL})...")
+    _ensure_embedding_model_registered()
     embeddings_model = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
 
         # PASO 4 — Almacenamiento en ChromaDB
@@ -158,6 +188,7 @@ def build_vector_store(
 
 def load_existing_vector_store(persist_dir: str = PERSIST_DIR):
     """Carga una base vectorial ya existente en disco, sin reprocesar los PDFs."""
+    _ensure_embedding_model_registered()
     embeddings_model = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
     client = _get_chroma_client(persist_dir)
     vector_store = Chroma(
