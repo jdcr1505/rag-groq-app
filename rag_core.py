@@ -162,7 +162,7 @@ def build_vector_store(
         # PASO 3 — Embeddings locales
     log(f"Cargando modelo de embeddings local ({EMBEDDING_MODEL})...")
     _ensure_embedding_model_registered()
-    embeddings_model = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
+    embeddings_model = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL, batch_size=8)
 
         # PASO 4 — Almacenamiento en ChromaDB
     client = _get_chroma_client(persist_dir)
@@ -183,6 +183,9 @@ def build_vector_store(
     vector_store.add_documents(chunks)
     total = vector_store._collection.count()
     log(f"[OK] Base vectorial creada: {total} fragmentos indexados.")
+
+    import gc
+    gc.collect()
 
     return vector_store, embeddings_model
 
