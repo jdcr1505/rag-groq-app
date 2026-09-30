@@ -4,6 +4,4 @@ venv/
 __pycache__/
 *.pyc
 chroma/
-pdfs/*.pdf
-!pdfs/.gitkeep
 fastembed_cache/

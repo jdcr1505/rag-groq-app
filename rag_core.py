@@ -11,6 +11,8 @@ para poder llamarse desde una interfaz gráfica (Streamlit).
 """
 
 import chromadb
+import hashlib
+import json
 import os
 import shutil
 from typing import Callable, Optional
@@ -34,6 +36,7 @@ load_dotenv()  # Carga variables desde el archivo .env
 
 PDF_DIR = "pdfs"
 PERSIST_DIR = "./chroma"
+MANIFEST_FILE = "pdfs_manifest.json"  # se guarda dentro de PERSIST_DIR
 COLLECTION_NAME = "mis_programas"
 
 EMBEDDING_MODEL = "intfloat/multilingual-e5-small"
@@ -90,6 +93,41 @@ def list_pdfs(pdf_dir: str = PDF_DIR) -> list:
         os.makedirs(pdf_dir, exist_ok=True)
         return []
     return sorted([f for f in os.listdir(pdf_dir) if f.lower().endswith(".pdf")])
+
+def pdf_manifest(pdf_dir: str = PDF_DIR) -> dict:
+    """
+    Huella de los PDFs de la carpeta (nombre -> hash MD5 del contenido).
+    Sirve para saber si la base vectorial guardada corresponde a los PDFs
+    que hay actualmente en la carpeta o si hay que reconstruirla.
+    """
+    manifest = {}
+    for nombre in list_pdfs(pdf_dir):
+        h = hashlib.md5()
+        with open(os.path.join(pdf_dir, nombre), "rb") as f:
+            for bloque in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(bloque)
+        manifest[nombre] = h.hexdigest()
+    return manifest
+
+
+def _save_manifest(manifest: dict, persist_dir: str = PERSIST_DIR):
+    os.makedirs(persist_dir, exist_ok=True)
+    with open(os.path.join(persist_dir, MANIFEST_FILE), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+
+
+def vector_store_up_to_date(pdf_dir: str = PDF_DIR, persist_dir: str = PERSIST_DIR) -> bool:
+    """True si la base en disco se construyó con exactamente los PDFs actuales."""
+    ruta = os.path.join(persist_dir, MANIFEST_FILE)
+    if not os.path.isfile(ruta):
+        return False
+    try:
+        with open(ruta, encoding="utf-8") as f:
+            guardado = json.load(f)
+    except (OSError, ValueError):
+        return False
+    return guardado == pdf_manifest(pdf_dir)
+
 
 _modelo_embeddings_registrado = False
 
@@ -190,6 +228,8 @@ def build_vector_store(
     total = vector_store._collection.count()
     log(f"[OK] Base vectorial creada: {total} fragmentos indexados.")
 
+    _save_manifest(pdf_manifest(pdf_dir), persist_dir)
+
     import gc
     gc.collect()
 
@@ -213,6 +253,27 @@ def load_existing_vector_store(persist_dir: str = PERSIST_DIR):
 
 def vector_store_exists(persist_dir: str = PERSIST_DIR) -> bool:
     return os.path.isdir(persist_dir) and len(os.listdir(persist_dir)) > 0
+
+
+def ensure_vector_store(
+    pdf_dir: str = PDF_DIR,
+    persist_dir: str = PERSIST_DIR,
+    progress_cb: Optional[Callable[[str], None]] = None,
+):
+    """
+    Deja lista la base vectorial a partir de los PDFs precargados en
+    `pdf_dir`: si la base en disco ya corresponde a esos PDFs la carga tal
+    cual; si no existe o los PDFs cambiaron, la reconstruye.
+    """
+    if vector_store_up_to_date(pdf_dir, persist_dir):
+        if progress_cb:
+            progress_cb("Base vectorial al día con la carpeta pdfs/ — cargando desde disco.")
+        vector_store, _ = load_existing_vector_store(persist_dir)
+        return vector_store
+    if progress_cb:
+        progress_cb("Los PDFs cambiaron o no hay base guardada — reconstruyendo.")
+    vector_store, _ = build_vector_store(pdf_dir, persist_dir, progress_cb)
+    return vector_store
 
 
 def get_llm(api_key: Optional[str] = None) -> ChatGroq:

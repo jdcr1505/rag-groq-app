@@ -1,9 +1,6 @@
 const apiStatusEl = document.getElementById("api-status");
 const pdfListEl = document.getElementById("pdf-list");
-const pdfInputEl = document.getElementById("pdf-input");
 const vsStatusEl = document.getElementById("vs-status");
-const btnBuild = document.getElementById("btn-build");
-const btnLoad = document.getElementById("btn-load");
 const buildLogEl = document.getElementById("build-log");
 const kSlider = document.getElementById("k-slider");
 const kValue = document.getElementById("k-value");
@@ -19,8 +16,14 @@ let vectorStoreListo = false;
 // ───────────────── Estado inicial ─────────────────
 
 async function cargarEstado() {
-  const res = await fetch("/api/status");
-  const data = await res.json();
+  let data;
+  try {
+    const res = await fetch("/api/status");
+    data = await res.json();
+  } catch (e) {
+    setTimeout(cargarEstado, 3000);
+    return;
+  }
 
   if (data.api_key_ok) {
     apiStatusEl.textContent = "API key de Groq detectada";
@@ -32,16 +35,20 @@ async function cargarEstado() {
 
   renderPdfList(data.pdfs);
 
-  if (data.vector_store_loaded) {
-    marcarVectorStoreListo("Base vectorial cargada y lista.");
-  } else if (data.vector_store_on_disk) {
-    vsStatusEl.textContent = "Existe en disco — presiona 'Cargar existente'.";
-    vsStatusEl.className = "status status--pending";
-    btnLoad.disabled = false;
+  if (data.log && data.log.length) {
+    buildLogEl.hidden = false;
+    buildLogEl.textContent = data.log.join("\n");
+  }
+
+  if (data.init_status === "lista") {
+    marcarVectorStoreListo("Base vectorial lista.");
+  } else if (data.init_status === "error") {
+    vsStatusEl.textContent = data.init_error || "Error al preparar la base vectorial.";
+    vsStatusEl.className = "status status--error";
   } else {
-    vsStatusEl.textContent = "Aún no construida.";
+    vsStatusEl.textContent = "Preparando base vectorial…";
     vsStatusEl.className = "status status--pending";
-    btnLoad.disabled = true;
+    setTimeout(cargarEstado, 3000);
   }
 }
 
@@ -62,37 +69,9 @@ function renderPdfList(pdfs) {
     span.textContent = nombre;
     span.className = "pdf-list__name";
 
-    const btnDel = document.createElement("button");
-    btnDel.textContent = "🗑";
-    btnDel.className = "pdf-list__delete";
-    btnDel.title = `Eliminar ${nombre}`;
-    btnDel.addEventListener("click", () => eliminarPdf(nombre));
-
     li.appendChild(span);
-    li.appendChild(btnDel);
     pdfListEl.appendChild(li);
   });
-}
-
-async function eliminarPdf(nombre) {
-  if (!confirm(`¿Eliminar "${nombre}" de la carpeta pdfs/?\n\nRecuerda volver a presionar "Construir" después, para que la base vectorial deje de contener su información.`)) {
-    return;
-  }
-  try {
-    const res = await fetch("/api/delete_pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      renderPdfList(data.pdfs);
-    } else {
-      alert(data.error || "No se pudo eliminar el archivo.");
-    }
-  } catch (e) {
-    alert("Error de red al eliminar el archivo.");
-  }
 }
 
 function marcarVectorStoreListo(mensaje) {
@@ -103,83 +82,6 @@ function marcarVectorStoreListo(mensaje) {
   submitBtn.disabled = false;
   if (emptyStateEl) emptyStateEl.remove();
 }
-
-// ───────────────── Subida de PDFs ─────────────────
-
-pdfInputEl.addEventListener("change", async () => {
-  if (!pdfInputEl.files.length) return;
-
-  const formData = new FormData();
-  for (const archivo of pdfInputEl.files) {
-    formData.append("pdfs", archivo);
-  }
-
-  const res = await fetch("/api/upload", { method: "POST", body: formData });
-  const data = await res.json();
-
-  if (res.ok) {
-    renderPdfList(data.pdfs);
-  } else {
-    alert(data.error || "No se pudo subir el archivo.");
-  }
-  pdfInputEl.value = "";
-});
-
-// ───────────────── Construcción de la base vectorial ─────────────────
-
-btnBuild.addEventListener("click", async () => {
-  btnBuild.disabled = true;
-  btnLoad.disabled = true;
-  buildLogEl.hidden = false;
-  buildLogEl.textContent = "Iniciando…\n(esto puede tardar 1-2 minutos la primera vez)";
-  vsStatusEl.textContent = "Construyendo…";
-  vsStatusEl.className = "status status--pending";
-
-  try {
-    const res = await fetch("/api/build", { method: "POST" });
-    const data = await res.json();
-
-    buildLogEl.textContent = (data.log || []).join("\n");
-
-    if (res.ok && data.ok) {
-      marcarVectorStoreListo("Base vectorial lista.");
-    } else {
-      vsStatusEl.textContent = data.error || "Error al construir la base.";
-      vsStatusEl.className = "status status--error";
-    }
-  } catch (e) {
-    vsStatusEl.textContent = "Error de red al construir la base.";
-    vsStatusEl.className = "status status--error";
-  } finally {
-    btnBuild.disabled = false;
-    btnLoad.disabled = false;
-  }
-});
-
-btnLoad.addEventListener("click", async () => {
-  btnBuild.disabled = true;
-  btnLoad.disabled = true;
-  vsStatusEl.textContent = "Cargando…";
-  vsStatusEl.className = "status status--pending";
-
-  try {
-    const res = await fetch("/api/load", { method: "POST" });
-    const data = await res.json();
-
-    if (res.ok && data.ok) {
-      marcarVectorStoreListo("Base vectorial cargada.");
-    } else {
-      vsStatusEl.textContent = data.error || "Error al cargar la base.";
-      vsStatusEl.className = "status status--error";
-    }
-  } catch (e) {
-    vsStatusEl.textContent = "Error de red al cargar la base.";
-    vsStatusEl.className = "status status--error";
-  } finally {
-    btnBuild.disabled = false;
-    btnLoad.disabled = false;
-  }
-});
 
 // ───────────────── Slider de k ─────────────────
 
