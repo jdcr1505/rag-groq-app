@@ -41,7 +41,9 @@ GROQ_API_KEY=gsk_tu_key_real_aqui
 
 ## 4. Agregar tus PDFs
 
-Coloca tus PDFs en la carpeta `pdfs/` (o súbelos desde la propia interfaz web una vez esté corriendo).
+Los documentos **vienen precargados**: coloca tus PDFs en la carpeta `pdfs/` y súbelos al repositorio junto con el código. La interfaz web no permite subir ni eliminar archivos (así la app funciona en hosts gratuitos, donde el disco es de solo lectura o se borra en cada reinicio).
+
+Para cambiar los documentos: agrega o quita PDFs de `pdfs/`, haz commit y vuelve a desplegar. La base vectorial se reconstruye sola al detectar el cambio.
 
 ## 5. Ejecutar la aplicación
 
@@ -52,13 +54,13 @@ python app.py
 Abre en tu navegador: **http://localhost:5000**
 
 
-Desde la interfaz:
-1. Verifica que la API key se detectó correctamente (panel lateral).
-2. Confirma o sube tus PDFs.
-3. Presiona **"Construir"** para procesar los PDFs (chunking + embeddings + ChromaDB). Puedes ver el progreso en el recuadro de log.
-4. Escribe tus preguntas en el cuadro de chat inferior.
+Al arrancar, la app prepara la base vectorial automáticamente:
+- Si `chroma/` ya contiene una base construida con los mismos PDFs (se compara un hash de cada archivo), la carga directamente.
+- Si no existe o los PDFs cambiaron, la reconstruye (chunking + embeddings + ChromaDB). El progreso se ve en el panel lateral.
 
-Si ya construiste la base antes y solo reabres el proyecto, usa **"Cargar existente"** en vez de reconstruir desde cero.
+Cuando el estado diga "Base vectorial lista", escribe tus preguntas en el cuadro de chat.
+
+Con Docker, la base se construye durante el build de la imagen (`build_index.py`), así el contenedor arranca con todo listo. También puedes ejecutar `python build_index.py` a mano.
 
 ## 6. Estructura del proyecto
 
@@ -74,12 +76,13 @@ rag_groq_flask/
 ├── static/
 │   ├── css/style.css        # Estilos
 │   └── js/script.js         # Lógica del frontend (llamadas a la API)
-├── pdfs/                     # Coloca aquí tus PDFs
+├── build_index.py          # Construye la base vectorial (se usa en el build de Docker)
+├── pdfs/                     # PDFs precargados (se versionan en git)
 └── chroma/                    # Base vectorial (se genera sola)
 ```
 
 ## Notas
 
 - El modelo de Groq usado por defecto es `openai/gpt-oss-120b`. Cámbialo en `rag_core.py` (variable `GROQ_MODEL`) si prefieres otro (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, etc.).
-- El backend mantiene la base vectorial cargada en memoria mientras el proceso de Flask siga corriendo (variable `state` en `app.py`). Si reinicias `python app.py`, usa "Cargar existente" para no reprocesar los PDFs.
+- El backend mantiene la base vectorial cargada en memoria mientras el proceso de Flask siga corriendo (variable `state` en `app.py`). Al reiniciar, si los PDFs no cambiaron, la base se carga desde disco sin reprocesarlos.
 - Si ves `Acceso denegado` al reconstruir la base en Windows, cierra la app, espera unos segundos (por si OneDrive está sincronizando la carpeta `chroma/`) y vuelve a intentar.

@@ -1,3 +1,4 @@
+.git
 .env
 venv/
 .venv/
@@ -5,3 +6,4 @@ __pycache__/
 *.pyc
 chroma/
 fastembed_cache/
+chatbotv1/
