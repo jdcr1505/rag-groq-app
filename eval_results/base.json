@@ -1,0 +1,28 @@
+{
+  "tag": "base",
+  "config": {
+    "k": 8,
+    "chunk_size": 800,
+    "overlap": 150,
+    "embedding": "intfloat/multilingual-e5-small",
+    "generador": "openai/gpt-oss-120b",
+    "juez": "qwen/qwen3.8-27b"
+  },
+  "metricas": {
+    "faithfulness": 0.7880952380952382,
+    "answer_relevancy": 0.8683154681379844,
+    "context_precision": 0.9010416665942709,
+    "context_recall": 1.0
+  },
+  "abstencion_fuera_corpus": 1.0,
+  "alucinaciones": [],
+  "falsos_rechazos": [],
+  "n_dentro": 16,
+  "n_fuera": 4,
+  "nan_restantes": {
+    "faithfulness": 0,
+    "answer_relevancy": 0,
+    "context_precision": 0,
+    "context_recall": 0
+  }
+}

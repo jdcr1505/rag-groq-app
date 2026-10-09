@@ -4,14 +4,17 @@ const vsStatusEl = document.getElementById("vs-status");
 const buildLogEl = document.getElementById("build-log");
 const kSlider = document.getElementById("k-slider");
 const kValue = document.getElementById("k-value");
-const verboseToggle = document.getElementById("verbose-toggle");
 const messagesEl = document.getElementById("messages");
 const emptyStateEl = document.getElementById("empty-state");
 const chatForm = document.getElementById("chat-form");
 const preguntaInput = document.getElementById("pregunta-input");
 const submitBtn = chatForm.querySelector("button[type=submit]");
+const btnReset = document.getElementById("btn-reset");
+
+const MAX_HISTORY = 6; // mensajes (3 turnos) enviados al backend
 
 let vectorStoreListo = false;
+let historial = []; // [{role: "user"|"assistant", content: "..."}]
 
 // ───────────────── Estado inicial ─────────────────
 
@@ -64,11 +67,9 @@ function renderPdfList(pdfs) {
   pdfs.forEach((nombre) => {
     const li = document.createElement("li");
     li.className = "pdf-list__item";
-
     const span = document.createElement("span");
     span.textContent = nombre;
     span.className = "pdf-list__name";
-
     li.appendChild(span);
     pdfListEl.appendChild(li);
   });
@@ -89,7 +90,7 @@ kSlider.addEventListener("input", () => {
   kValue.textContent = kSlider.value;
 });
 
-// ───────────────── Diagnóstico: qué se indexó realmente ─────────────────
+// ───────────────── Diagnóstico: qué se indexó ─────────────────
 
 const btnIndexed = document.getElementById("btn-indexed");
 const indexedPanel = document.getElementById("indexed-panel");
@@ -144,6 +145,32 @@ function agregarMensaje(texto, tipo) {
   return div;
 }
 
+function renderFuentes(fuentes) {
+  const det = document.createElement("details");
+  det.className = "sources";
+  const sum = document.createElement("summary");
+  sum.textContent = `Fuentes (${fuentes.length})`;
+  det.appendChild(sum);
+
+  fuentes.forEach((f) => {
+    const frag = document.createElement("div");
+    frag.className = "fragment";
+    const src = document.createElement("span");
+    src.className = "fragment__source";
+    src.textContent = `${f.fuente} — Pág. ${f.pagina}`;
+    frag.appendChild(src);
+    frag.appendChild(document.createTextNode(f.texto));
+    det.appendChild(frag);
+  });
+  return det;
+}
+
+btnReset.addEventListener("click", () => {
+  historial = [];
+  messagesEl.innerHTML = "";
+  preguntaInput.focus();
+});
+
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const pregunta = preguntaInput.value.trim();
@@ -161,7 +188,11 @@ chatForm.addEventListener("submit", async (e) => {
     const res = await fetch("/api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pregunta, k: Number(kSlider.value) }),
+      body: JSON.stringify({
+        pregunta,
+        k: Number(kSlider.value),
+        historial: historial.slice(-MAX_HISTORY),
+      }),
     });
     const data = await res.json();
 
@@ -171,21 +202,26 @@ chatForm.addEventListener("submit", async (e) => {
     } else {
       pensando.querySelector("p").textContent = data.respuesta;
 
+      // Guardar el turno en el historial (solo si salió bien)
+      historial.push({ role: "user", content: pregunta });
+      historial.push({ role: "assistant", content: data.respuesta });
+
+      if (data.pregunta_independiente && data.pregunta_independiente !== pregunta) {
+        const re = document.createElement("div");
+        re.className = "msg__rewrite";
+        re.textContent = `Interpretada como: ${data.pregunta_independiente}`;
+        pensando.appendChild(re);
+      }
+
       const meta = document.createElement("div");
       meta.className = "msg__meta";
-      meta.textContent = `~${data.tokens_contexto_aprox} tokens de contexto · ${data.fragmentos.length} fragmentos recuperados`;
+      meta.textContent = data.sin_respuesta
+        ? "Sin información en la base de conocimientos"
+        : `~${data.tokens_contexto_aprox} tokens de contexto · ${data.n_recuperados} fragmentos recuperados`;
       pensando.appendChild(meta);
 
-      if (verboseToggle.checked && data.fragmentos.length) {
-        const cont = document.createElement("div");
-        cont.className = "fragments";
-        data.fragmentos.forEach((f) => {
-          const frag = document.createElement("div");
-          frag.className = "fragment";
-          frag.innerHTML = `<span class="fragment__source">${f.fuente} — Pág. ${f.pagina}</span>${f.texto}`;
-          cont.appendChild(frag);
-        });
-        pensando.appendChild(cont);
+      if (data.fuentes && data.fuentes.length) {
+        pensando.appendChild(renderFuentes(data.fuentes));
       }
     }
   } catch (err) {
@@ -195,6 +231,7 @@ chatForm.addEventListener("submit", async (e) => {
     preguntaInput.disabled = false;
     submitBtn.disabled = false;
     preguntaInput.focus();
+    messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 });
 

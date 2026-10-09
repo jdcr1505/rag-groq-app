@@ -1,10 +1,11 @@
 """
-Backend Flask para el sistema RAG con Groq.
+Backend Flask para el sistema RAG conversacional con Groq.
 
 Ejecutar con:
-    python app.py
+    python app.py        ->  http://localhost:5000
 
-    Abre http://localhost:5000 en tu navegador.
+El servidor es stateless respecto a la conversación: el navegador envía el
+historial en cada petición, así varios usuarios no mezclan sus diálogos.
 """
 
 import os
@@ -14,6 +15,29 @@ import traceback
 from flask import Flask, render_template, request, jsonify
 
 import rag_core
+
+import json
+from datetime import datetime
+
+LOG_FILE = "interactions.jsonl"
+
+
+def registrar_interaccion(pregunta, r, k):
+    registro = {
+        "fecha": datetime.now().isoformat(timespec="seconds"),
+        "pregunta": pregunta,
+        "pregunta_independiente": r["pregunta_independiente"],
+        "respuesta": r["respuesta"],
+        "sin_respuesta": r["sin_respuesta"],
+        "k": k,
+        "contextos": [f["texto"] for f in r["fuentes"]],
+        "fuentes": [{"fuente": f["fuente"], "pagina": f["pagina"]} for f in r["fuentes"]],
+    }
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(registro, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
 
 app = Flask(__name__)
 
@@ -32,11 +56,6 @@ def log(msg: str):
 
 
 def inicializar_base():
-    """
-    Carga (o construye, si los PDFs cambiaron) la base vectorial a partir de
-    los PDFs precargados en la carpeta pdfs/. Se ejecuta una sola vez en
-    segundo plano al arrancar, para no bloquear el servidor.
-    """
     state["init_status"] = "inicializando"
     try:
         state["vector_store"] = rag_core.ensure_vector_store(progress_cb=log)
@@ -51,6 +70,17 @@ def inicializar_base():
 threading.Thread(target=inicializar_base, daemon=True).start()
 
 
+def _limpiar_historial(raw) -> list:
+    """Valida el historial recibido del cliente."""
+    if not isinstance(raw, list):
+        return []
+    limpio = []
+    for m in raw[-rag_core.MAX_HISTORY_MESSAGES:]:
+        if isinstance(m, dict) and m.get("role") in ("user", "assistant"):
+            limpio.append({"role": m["role"], "content": str(m.get("content", ""))[:2000]})
+    return limpio
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -60,11 +90,9 @@ def index():
 def api_status():
     try:
         rag_core.get_groq_api_key()
-        api_key_ok = True
-        api_key_error = None
+        api_key_ok, api_key_error = True, None
     except ValueError as e:
-        api_key_ok = False
-        api_key_error = str(e)
+        api_key_ok, api_key_error = False, str(e)
 
     return jsonify({
         "api_key_ok": api_key_ok,
@@ -86,15 +114,19 @@ def api_indexed():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 400
 
+
 @app.route("/api/ask", methods=["POST"])
 def api_ask():
-    data = request.get_json(force=True)
-    pregunta = (data or {}).get("pregunta", "").strip()
-    k = int((data or {}).get("k", rag_core.DEFAULT_K))
+    data = request.get_json(force=True) or {}
+    pregunta = str(data.get("pregunta", "")).strip()
+    try:
+        k = max(1, min(int(data.get("k", rag_core.DEFAULT_K)), 15))
+    except (TypeError, ValueError):
+        k = rag_core.DEFAULT_K
+    historial = _limpiar_historial(data.get("historial"))
 
     if not pregunta:
         return jsonify({"error": "La pregunta está vacía."}), 400
-
     if state["vector_store"] is None:
         return jsonify({"error": "La base vectorial aún se está preparando. Intenta de nuevo en unos segundos."}), 503
 
@@ -102,25 +134,30 @@ def api_ask():
         if state["llm"] is None:
             state["llm"] = rag_core.get_llm()
 
-        resultado = rag_core.rag_pipeline(pregunta, state["vector_store"], state["llm"], k=k)
+        r = rag_core.rag_pipeline(
+            pregunta, state["vector_store"], state["llm"], k=k, historial=historial
+        )
+        registrar_interaccion(pregunta, r, k)
 
-        fragmentos = [
-            {
-                "fuente": os.path.basename(d.metadata.get("source", "?")),
-                "pagina": d.metadata.get("page", "?"),
-                "texto": d.page_content[:400],
-            }
-            for d in resultado["fragmentos"]
+        fuentes = [
+            {**f, "texto": f["texto"][:500]} for f in r["fuentes"]
         ]
 
         return jsonify({
-            "respuesta": resultado["respuesta"],
-            "fragmentos": fragmentos,
-            "tokens_contexto_aprox": resultado["tokens_contexto_aprox"],
+            "respuesta": r["respuesta"],
+            "sin_respuesta": r["sin_respuesta"],
+            "pregunta_independiente": r["pregunta_independiente"],
+            "fuentes": [] if r["sin_respuesta"] else fuentes,
+            "tokens_contexto_aprox": r["tokens_contexto_aprox"],
+            "n_recuperados": len(r["fuentes"]),
         })
+    
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 400
+        traceback.print_exc()  # el detalle técnico queda solo en la consola/logs
+        if rag_core.es_rate_limit(e):
+            return jsonify({"error": "El servicio está recibiendo muchas consultas. Espera unos segundos e inténtalo de nuevo."}), 429
+        return jsonify({"error": "Ocurrió un error al procesar tu consulta. Inténtalo de nuevo en un momento."}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

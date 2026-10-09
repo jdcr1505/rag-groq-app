@@ -1,0 +1,9 @@
+{
+  "n_interacciones": 15,
+  "n_abstenciones": 3,
+  "n_evaluadas": 10,
+  "metricas": {
+    "faithfulness": 0.7471849138515805,
+    "answer_relevancy": 0.8544798587299656
+  }
+}
