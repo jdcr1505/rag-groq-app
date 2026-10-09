@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RAG · Reglamento Académico</title>
+  <title>RAG · Asistente Legal</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -43,10 +43,11 @@
           <input type="range" id="k-slider" min="1" max="15" value="8">
           <span id="k-value">8</span>
         </div>
-        <label class="checkbox">
-          <input type="checkbox" id="verbose-toggle" checked>
-          Mostrar fragmentos de origen
-        </label>
+      </section>
+
+      <section class="panel__section">
+        <h2>Conversación</h2>
+        <button id="btn-reset" type="button" class="btn btn--ghost" style="width:100%;">Nueva conversación</button>
       </section>
     </aside>
 

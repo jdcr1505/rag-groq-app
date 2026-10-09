@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 chroma/
 fastembed_cache/
+interactions.jsonl
+.venv-eval/

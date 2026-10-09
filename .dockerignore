@@ -7,3 +7,6 @@ __pycache__/
 chroma/
 fastembed_cache/
 chatbotv1/
+interactions.jsonl
+.venv-eval/
+eval_results/
