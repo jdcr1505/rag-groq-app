@@ -2,15 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Asistente que responde preguntas sobre normativa colombiana citando documento y página.">
-  <meta name="theme-color" content="#F2F4F3" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#121A24" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <title>RAG · Asistente Legal</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%238A2E3B' stroke-width='3'/><path d='M10 12h12M16 9v15M11 22h10' stroke='%238A2E3B' stroke-width='2.4' stroke-linecap='round'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%233B82F6'/><stop offset='1' stop-color='%234F46E5'/></linearGradient></defs><rect width='64' height='64' rx='15' fill='url(%23g)'/><text x='32' y='46' font-size='40' text-anchor='middle' fill='white' font-family='Georgia,serif'>§</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -19,77 +19,88 @@
 
   <div class="layout">
 
-    <!-- ───────────────── Panel lateral ───────────────── -->
-    <aside class="panel" id="panel" aria-label="Configuración y estado">
-      <header class="panel__brand">
-        <svg class="panel__seal" viewBox="0 0 32 32" aria-hidden="true">
-          <circle cx="16" cy="16" r="13" />
-          <path d="M10 12h12M16 9v15M11 22h10" />
-        </svg>
-        <div>
-          <h1>Asistente de normativa colombiana</h1>
-          <p class="panel__subtitle">Responde solo con los documentos cargados y cita la página.</p>
+    <!-- ───────────────── Barra lateral ───────────────── -->
+    <aside class="panel" id="panel" aria-label="Estado y ajustes">
+      <div class="panel__top">
+        <div class="app-id">
+          <span class="app-icon app-icon--sm" aria-hidden="true">§</span>
+          <div>
+            <h1>Asistente Legal</h1>
+            <p>Normativa colombiana</p>
+          </div>
         </div>
-        <button type="button" class="icon-btn panel__close" id="btn-close-panel" aria-label="Cerrar panel">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        <button type="button" class="icon-btn panel__close" id="btn-close-panel" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>
         </button>
-      </header>
+      </div>
 
-      <section class="panel__section" aria-labelledby="h-estado">
-        <h2 id="h-estado">Estado</h2>
-        <ul class="status-list">
-          <li><p id="api-status" class="status status--pending">Verificando clave de API…</p></li>
-          <li><p id="vs-status" class="status status--pending">Comprobando base vectorial…</p></li>
-        </ul>
-        <details class="log-details" id="log-details" hidden>
-          <summary>Registro de indexación</summary>
-          <pre id="build-log" class="build-log"></pre>
-        </details>
-      </section>
-
-      <section class="panel__section" aria-labelledby="h-docs">
-        <div class="panel__row">
-          <h2 id="h-docs">Documentos</h2>
-          <span class="panel__count" id="pdf-count"></span>
+      <section class="group" aria-labelledby="h-estado">
+        <h2 class="group__title" id="h-estado">Estado</h2>
+        <div class="group__box">
+          <div class="row">
+            <span class="row__label">Clave de API</span>
+            <p id="api-status" class="status status--pending">Verificando…</p>
+          </div>
+          <div class="row">
+            <span class="row__label">Base vectorial</span>
+            <p id="vs-status" class="status status--pending">Comprobando…</p>
+          </div>
+          <details class="row row--disclosure" id="log-details" hidden>
+            <summary>Registro de indexación<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></summary>
+            <pre id="build-log" class="build-log"></pre>
+          </details>
         </div>
-        <ul id="pdf-list" class="pdf-list"></ul>
-        <button id="btn-indexed" type="button" class="btn btn--quiet" aria-expanded="false" aria-controls="indexed-panel">Ver qué se indexó</button>
-        <div id="indexed-panel" class="indexed-panel" hidden></div>
       </section>
 
-      <section class="panel__section" aria-labelledby="h-k">
-        <div class="panel__row">
-          <h2 id="h-k"><label for="k-slider">Fragmentos a recuperar</label></h2>
-          <output id="k-value" for="k-slider" class="k-value">8</output>
+      <section class="group" aria-labelledby="h-docs">
+        <h2 class="group__title" id="h-docs">Documentos <span id="pdf-count" class="group__count"></span></h2>
+        <ul id="pdf-list" class="group__box pdf-list"></ul>
+        <button id="btn-indexed" type="button" class="link-btn" aria-expanded="false" aria-controls="indexed-panel">Ver qué se indexó</button>
+        <div id="indexed-panel" class="group__box indexed-panel" hidden></div>
+      </section>
+
+      <section class="group" aria-labelledby="h-k">
+        <h2 class="group__title" id="h-k">Búsqueda</h2>
+        <div class="group__box">
+          <div class="row row--stack">
+            <div class="row__line">
+              <label for="k-slider" class="row__label">Fragmentos por pregunta</label>
+              <output id="k-value" for="k-slider" class="row__value">8</output>
+            </div>
+            <input type="range" id="k-slider" min="1" max="15" value="8" aria-describedby="k-hint">
+          </div>
         </div>
-        <input type="range" id="k-slider" min="1" max="15" value="8" aria-describedby="k-hint">
-        <p class="hint" id="k-hint">Cuántos fragmentos de los documentos recibe el modelo por pregunta. Con 8 se obtuvo el mejor resultado en la evaluación.</p>
+        <p class="group__footer" id="k-hint">Cuántos fragmentos de los documentos recibe el modelo. Con 8 se obtuvo el mejor resultado en la evaluación.</p>
       </section>
 
-      <section class="panel__section panel__section--end">
-        <button id="btn-reset" type="button" class="btn btn--outline">Nueva conversación</button>
-        <p class="hint">La conversación vive en este navegador y se borra al recargar la página.</p>
+      <section class="group group--end">
+        <button id="btn-reset" type="button" class="btn btn--secondary">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h8M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg>
+          Nueva conversación
+        </button>
+        <p class="group__footer">La conversación se guarda solo en este navegador y se borra al recargar.</p>
       </section>
     </aside>
 
     <div class="scrim" id="scrim" hidden></div>
 
-    <!-- ───────────────── Panel de chat ───────────────── -->
+    <!-- ───────────────── Chat ───────────────── -->
     <main class="chat">
-      <header class="chat__bar">
-        <button type="button" class="icon-btn chat__menu" id="btn-open-panel" aria-label="Abrir panel de estado y documentos" aria-controls="panel" aria-expanded="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" /></svg>
+      <header class="toolbar">
+        <button type="button" class="icon-btn toolbar__menu" id="btn-open-panel" aria-label="Abrir estado y ajustes" aria-controls="panel" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3" /><path d="M9.5 4.5v15" /></svg>
         </button>
-        <p class="chat__title">Consulta</p>
-        <span class="chat__ready" id="chat-ready" data-state="pending">Preparando</span>
+        <p class="toolbar__title">Asistente Legal</p>
+        <span class="toolbar__status" id="chat-ready" data-state="pending">Preparando</span>
       </header>
 
       <div id="messages" class="chat__messages" role="log" aria-live="polite" aria-relevant="additions">
         <div class="empty-state" id="empty-state">
-          <h2 class="empty-state__title">¿Qué quieres saber de la normativa?</h2>
-          <p class="empty-state__lead">Pregunta con tus palabras sobre peticiones, compras, datos personales, contratos, demandas, impuestos o arriendos. Cada respuesta indica de qué documento y página sale.</p>
-          <p class="empty-state__wait" id="empty-wait">Preparando la base de conocimientos… en cuanto esté lista podrás preguntar sobre los documentos.</p>
-          <div class="examples" id="examples" aria-label="Preguntas de ejemplo">
+          <span class="app-icon" aria-hidden="true">§</span>
+          <h2 class="empty-state__title">¿En qué te puedo ayudar?</h2>
+          <p class="empty-state__lead">Pregunta sobre peticiones, compras, datos personales, contratos, demandas, impuestos o arriendos. Cada respuesta indica el documento y la página de donde sale.</p>
+          <p class="empty-state__wait" id="empty-wait">Preparando la base de conocimientos…</p>
+          <div class="suggestions" id="examples" aria-label="Preguntas sugeridas">
             <button type="button" class="example" disabled>¿En cuántos días debe resolverse una petición ante una autoridad?</button>
             <button type="button" class="example" disabled>Compré algo por internet y me arrepentí, ¿puedo devolverlo?</button>
             <button type="button" class="example" disabled>Soy inquilino y quiero irme antes de que termine el contrato, ¿qué debo hacer?</button>
@@ -98,24 +109,23 @@
         </div>
       </div>
 
-      <form id="chat-form" class="chat__form">
+      <form id="chat-form" class="composer-wrap">
         <div class="composer">
           <label for="pregunta-input" class="visually-hidden">Tu pregunta</label>
           <textarea
             id="pregunta-input"
             rows="1"
             maxlength="1000"
-            placeholder="Escribe tu pregunta sobre la normativa…"
+            placeholder="Pregunta sobre la normativa"
             autocomplete="off"
             enterkeyhint="send"
             disabled
           ></textarea>
-          <button type="submit" class="btn btn--send" disabled aria-label="Enviar pregunta">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
-            <span>Enviar</span>
+          <button type="submit" class="send" disabled aria-label="Enviar pregunta">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
           </button>
         </div>
-        <p class="chat__disclaimer">Información orientativa basada en extractos didácticos. No sustituye la asesoría de un abogado. <span class="kbd-hint"><kbd>Enter</kbd> envía, <kbd>Shift</kbd>+<kbd>Enter</kbd> agrega una línea.</span></p>
+        <p class="composer__note">Información orientativa basada en extractos didácticos. No sustituye la asesoría de un abogado.</p>
       </form>
     </main>
 

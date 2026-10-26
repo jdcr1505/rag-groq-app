@@ -63,7 +63,7 @@ async function cargarEstado() {
   }
 
   if (data.api_key_ok) {
-    apiStatusEl.textContent = "Clave de API de Groq detectada";
+    apiStatusEl.textContent = "Detectada";
     apiStatusEl.className = "status status--ok";
   } else {
     apiStatusEl.textContent = data.api_key_error;
@@ -78,14 +78,14 @@ async function cargarEstado() {
   }
 
   if (data.init_status === "lista") {
-    marcarVectorStoreListo("Base vectorial lista");
+    marcarVectorStoreListo("Lista");
   } else if (data.init_status === "error") {
     vsStatusEl.textContent = data.init_error || "Error al preparar la base vectorial.";
     vsStatusEl.className = "status status--error";
     setReady("error", "Sin conexión a la base");
     logDetailsEl.open = true;
   } else {
-    vsStatusEl.textContent = "Preparando base vectorial…";
+    vsStatusEl.textContent = "Preparando…";
     vsStatusEl.className = "status status--pending";
     setTimeout(cargarEstado, 3000);
   }
@@ -109,6 +109,7 @@ function renderPdfList(pdfs) {
   pdfs.forEach((nombre) => {
     const li = document.createElement("li");
     li.className = "pdf-list__item";
+    li.title = nombre;
     const titulo = document.createElement("span");
     titulo.className = "pdf-list__name";
     titulo.textContent = infoDocumento(nombre).titulo;
@@ -125,7 +126,7 @@ function marcarVectorStoreListo(mensaje) {
   vectorStoreListo = true;
   vsStatusEl.textContent = mensaje;
   vsStatusEl.className = "status status--ok";
-  setReady("ok", "Lista para preguntar");
+  setReady("ok", "Lista");
   habilitarEntrada(true);
   activarEstadoVacio();
 }
@@ -149,9 +150,13 @@ function activarEstadoVacio() {
 
 // ───────────────── Slider de k ─────────────────
 
-kSlider.addEventListener("input", () => {
+function pintarSlider() {
   kValue.textContent = kSlider.value;
-});
+  const pct = ((kSlider.value - kSlider.min) / (kSlider.max - kSlider.min)) * 100;
+  kSlider.style.setProperty("--pct", `${pct}%`);
+}
+kSlider.addEventListener("input", pintarSlider);
+pintarSlider();
 
 // ───────────────── Diagnóstico: qué se indexó ─────────────────
 
@@ -245,6 +250,8 @@ function escapeHtml(s) {
 // Cita con el formato pedido en el prompt: (Fuente: Documento.pdf, Pág. N)
 const CITA_RE = /\(\s*Fuente:\s*([^,()]+?\.pdf)\s*[,—–-]\s*P[áa]g(?:ina)?\.?\s*(\d+)\s*\)/gi;
 
+const ICONO_DOC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>';
+
 function formatoInline(texto) {
   // texto ya escapado
   return texto
@@ -254,7 +261,7 @@ function formatoInline(texto) {
       const corto = escapeHtml(infoDocumento(archivo.trim()).corto);
       return `<button type="button" class="cite" data-fuente="${archivo.trim()}" data-pagina="${pagina}" ` +
         `title="Ver fragmento de ${archivo.trim()}, página ${pagina}">` +
-        `${corto} <span class="cite__page">p. ${pagina}</span></button>`;
+        `${ICONO_DOC}${corto} <span class="cite__page">p. ${pagina}</span></button>`;
     });
 }
 
@@ -408,7 +415,7 @@ async function enviarPregunta(pregunta) {
   const pensando = agregarMensaje("", "assistant");
   pensando.classList.add("msg--loading");
   const body = pensando.querySelector(".msg__body");
-  body.innerHTML = '<span class="spinner" aria-hidden="true"></span><span>Consultando…</span>';
+  body.innerHTML = '<span class="typing" role="status" aria-label="Consultando…"><span></span><span></span><span></span></span>';
 
   try {
     const res = await fetch("/api/ask", {
