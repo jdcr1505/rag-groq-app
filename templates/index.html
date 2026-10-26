@@ -3,71 +3,119 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Asistente que responde preguntas sobre normativa colombiana citando documento y página.">
+  <meta name="theme-color" content="#F2F4F3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121A24" media="(prefers-color-scheme: dark)">
   <title>RAG · Asistente Legal</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%238A2E3B' stroke-width='3'/><path d='M10 12h12M16 9v15M11 22h10' stroke='%238A2E3B' stroke-width='2.4' stroke-linecap='round'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
+  <a class="skip-link" href="#pregunta-input">Ir al campo de pregunta</a>
+
   <div class="layout">
 
     <!-- ───────────────── Panel lateral ───────────────── -->
-    <aside class="panel">
+    <aside class="panel" id="panel" aria-label="Configuración y estado">
       <header class="panel__brand">
-        <h1>Consulta<br>de documentos</h1>
-        <p class="panel__subtitle">RAG local + Groq</p>
+        <svg class="panel__seal" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="16" r="13" />
+          <path d="M10 12h12M16 9v15M11 22h10" />
+        </svg>
+        <div>
+          <h1>Asistente de normativa colombiana</h1>
+          <p class="panel__subtitle">Responde solo con los documentos cargados y cita la página.</p>
+        </div>
+        <button type="button" class="icon-btn panel__close" id="btn-close-panel" aria-label="Cerrar panel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
       </header>
 
-      <section class="panel__section">
-        <h2>Clave de API</h2>
-        <p id="api-status" class="status status--pending">Verificando…</p>
+      <section class="panel__section" aria-labelledby="h-estado">
+        <h2 id="h-estado">Estado</h2>
+        <ul class="status-list">
+          <li><p id="api-status" class="status status--pending">Verificando clave de API…</p></li>
+          <li><p id="vs-status" class="status status--pending">Comprobando base vectorial…</p></li>
+        </ul>
+        <details class="log-details" id="log-details" hidden>
+          <summary>Registro de indexación</summary>
+          <pre id="build-log" class="build-log"></pre>
+        </details>
       </section>
 
-      <section class="panel__section">
-        <h2>Documentos PDF</h2>
-        <ul id="pdf-list" class="pdf-list"></ul>
-      </section>
-
-      <section class="panel__section">
-        <h2>Base vectorial</h2>
-        <p id="vs-status" class="status status--pending">Comprobando…</p>
-
-        <pre id="build-log" class="build-log" hidden></pre>
-
-<button id="btn-indexed" class="btn btn--ghost" style="margin-top:8px;">Ver qué se indexó</button>
-<div id="indexed-panel" class="indexed-panel" hidden></div>
-      </section>
-
-      <section class="panel__section">
-        <h2>Fragmentos a recuperar</h2>
-        <div class="k-control">
-          <input type="range" id="k-slider" min="1" max="15" value="8">
-          <span id="k-value">8</span>
+      <section class="panel__section" aria-labelledby="h-docs">
+        <div class="panel__row">
+          <h2 id="h-docs">Documentos</h2>
+          <span class="panel__count" id="pdf-count"></span>
         </div>
+        <ul id="pdf-list" class="pdf-list"></ul>
+        <button id="btn-indexed" type="button" class="btn btn--quiet" aria-expanded="false" aria-controls="indexed-panel">Ver qué se indexó</button>
+        <div id="indexed-panel" class="indexed-panel" hidden></div>
       </section>
 
-      <section class="panel__section">
-        <h2>Conversación</h2>
-        <button id="btn-reset" type="button" class="btn btn--ghost" style="width:100%;">Nueva conversación</button>
+      <section class="panel__section" aria-labelledby="h-k">
+        <div class="panel__row">
+          <h2 id="h-k"><label for="k-slider">Fragmentos a recuperar</label></h2>
+          <output id="k-value" for="k-slider" class="k-value">8</output>
+        </div>
+        <input type="range" id="k-slider" min="1" max="15" value="8" aria-describedby="k-hint">
+        <p class="hint" id="k-hint">Cuántos fragmentos de los documentos recibe el modelo por pregunta. Con 8 se obtuvo el mejor resultado en la evaluación.</p>
+      </section>
+
+      <section class="panel__section panel__section--end">
+        <button id="btn-reset" type="button" class="btn btn--outline">Nueva conversación</button>
+        <p class="hint">La conversación vive en este navegador y se borra al recargar la página.</p>
       </section>
     </aside>
 
+    <div class="scrim" id="scrim" hidden></div>
+
     <!-- ───────────────── Panel de chat ───────────────── -->
     <main class="chat">
-      <div id="messages" class="chat__messages">
+      <header class="chat__bar">
+        <button type="button" class="icon-btn chat__menu" id="btn-open-panel" aria-label="Abrir panel de estado y documentos" aria-controls="panel" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" /></svg>
+        </button>
+        <p class="chat__title">Consulta</p>
+        <span class="chat__ready" id="chat-ready" data-state="pending">Preparando</span>
+      </header>
+
+      <div id="messages" class="chat__messages" role="log" aria-live="polite" aria-relevant="additions">
         <div class="empty-state" id="empty-state">
-          <p>Preparando la base de conocimientos… en cuanto esté lista podrás preguntar sobre los documentos.</p>
+          <h2 class="empty-state__title">¿Qué quieres saber de la normativa?</h2>
+          <p class="empty-state__lead">Pregunta con tus palabras sobre peticiones, compras, datos personales, contratos, demandas, impuestos o arriendos. Cada respuesta indica de qué documento y página sale.</p>
+          <p class="empty-state__wait" id="empty-wait">Preparando la base de conocimientos… en cuanto esté lista podrás preguntar sobre los documentos.</p>
+          <div class="examples" id="examples" aria-label="Preguntas de ejemplo">
+            <button type="button" class="example" disabled>¿En cuántos días debe resolverse una petición ante una autoridad?</button>
+            <button type="button" class="example" disabled>Compré algo por internet y me arrepentí, ¿puedo devolverlo?</button>
+            <button type="button" class="example" disabled>Soy inquilino y quiero irme antes de que termine el contrato, ¿qué debo hacer?</button>
+            <button type="button" class="example" disabled>¿Qué se considera un dato sensible?</button>
+          </div>
         </div>
       </div>
 
       <form id="chat-form" class="chat__form">
-        <input
-          type="text"
-          id="pregunta-input"
-          placeholder="Escribe tu pregunta sobre el documento…"
-          autocomplete="off"
-          disabled
-        >
-        <button type="submit" class="btn btn--primary" disabled>Enviar</button>
+        <div class="composer">
+          <label for="pregunta-input" class="visually-hidden">Tu pregunta</label>
+          <textarea
+            id="pregunta-input"
+            rows="1"
+            maxlength="1000"
+            placeholder="Escribe tu pregunta sobre la normativa…"
+            autocomplete="off"
+            enterkeyhint="send"
+            disabled
+          ></textarea>
+          <button type="submit" class="btn btn--send" disabled aria-label="Enviar pregunta">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+            <span>Enviar</span>
+          </button>
+        </div>
+        <p class="chat__disclaimer">Información orientativa basada en extractos didácticos. No sustituye la asesoría de un abogado. <span class="kbd-hint"><kbd>Enter</kbd> envía, <kbd>Shift</kbd>+<kbd>Enter</kbd> agrega una línea.</span></p>
       </form>
     </main>
 
