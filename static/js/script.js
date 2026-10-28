@@ -265,23 +265,30 @@ function formatoInline(texto) {
     });
 }
 
+const ITEM_RE = /^\s*([-*•]|\d+[.)])\s+/;
+
 // Markdown mínimo y seguro: párrafos, listas, negrita, cursiva y citas
 function renderRespuesta(texto) {
   const bloques = escapeHtml(texto.trim()).split(/\n\s*\n/);
   const html = [];
   bloques.forEach((bloque) => {
     const lineas = bloque.split("\n").filter((l) => l.trim());
-    if (!lineas.length) return;
-    const esLista = lineas.every((l) => /^\s*([-*•]|\d+[.)])\s+/.test(l));
-    if (esLista) {
-      const ordenada = /^\s*\d+[.)]/.test(lineas[0]);
-      const tag = ordenada ? "ol" : "ul";
-      const items = lineas
-        .map((l) => `<li>${formatoInline(l.replace(/^\s*([-*•]|\d+[.)])\s+/, ""))}</li>`)
-        .join("");
-      html.push(`<${tag}>${items}</${tag}>`);
-    } else {
-      html.push(`<p>${lineas.map(formatoInline).join("<br>")}</p>`);
+    // Agrupa líneas consecutivas: el modelo suele poner la lista justo
+    // debajo de la frase que la introduce, sin línea en blanco.
+    let i = 0;
+    while (i < lineas.length) {
+      const esItem = ITEM_RE.test(lineas[i]);
+      const grupo = [];
+      while (i < lineas.length && ITEM_RE.test(lineas[i]) === esItem) grupo.push(lineas[i++]);
+      if (esItem) {
+        const tag = /^\s*\d+[.)]/.test(grupo[0]) ? "ol" : "ul";
+        const items = grupo
+          .map((l) => `<li>${formatoInline(l.replace(ITEM_RE, ""))}</li>`)
+          .join("");
+        html.push(`<${tag}>${items}</${tag}>`);
+      } else {
+        html.push(`<p>${grupo.map(formatoInline).join("<br>")}</p>`);
+      }
     }
   });
   return html.join("");
