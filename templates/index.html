@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Asistente que responde preguntas sobre normativa colombiana citando documento y página.">
-  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F2F2F4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)">
   <title>RAG · Asistente Legal</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><path d='M6 2.5h11l5.5 5.5v17.5H6z' fill='white' stroke='%23141414' stroke-width='1.6' stroke-linejoin='round'/><path d='M17 2.5V8h5.5' fill='none' stroke='%23141414' stroke-width='1.6' stroke-linejoin='round'/><text x='14.2' y='21' font-size='13' font-weight='700' text-anchor='middle' fill='%231d5fbf' font-family='Georgia,serif'>§</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -21,6 +21,7 @@
 
     <!-- ───────────────── Barra lateral ───────────────── -->
     <aside class="panel" id="panel" aria-label="Estado y ajustes">
+      <div class="panel__core">
       <div class="panel__top">
         <div class="app-id">
           <svg class="app-mark" viewBox="0 0 28 28" aria-hidden="true">
@@ -79,11 +80,14 @@
 
       <section class="group group--end">
         <button id="btn-reset" type="button" class="btn btn--secondary">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h8M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg>
           Nueva conversación
+          <span class="btn__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 20h8M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg>
+          </span>
         </button>
         <p class="group__footer">La conversación se guarda solo en este navegador y se borra al recargar.</p>
       </section>
+      </div>
     </aside>
 
     <div class="scrim" id="scrim" hidden></div>
@@ -100,6 +104,7 @@
 
       <div id="messages" class="chat__messages" role="log" aria-live="polite" aria-relevant="additions">
         <div class="empty-state" id="empty-state">
+          <span class="eyebrow">Normativa colombiana</span>
           <h2 class="empty-state__title">¿En qué te puedo ayudar?</h2>
           <p class="empty-state__lead">Pregunta sobre peticiones, compras, datos personales, contratos, demandas, impuestos o arriendos. Cada respuesta indica el documento y la página de donde sale.</p>
           <p class="empty-state__wait" id="empty-wait">Preparando la base de conocimientos…</p>
@@ -113,6 +118,7 @@
       </div>
 
       <form id="chat-form" class="composer-wrap">
+        <div class="composer-shell">
         <div class="composer">
           <label for="pregunta-input" class="visually-hidden">Tu pregunta</label>
           <textarea
@@ -127,6 +133,7 @@
           <button type="submit" class="send" disabled aria-label="Enviar pregunta">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
           </button>
+        </div>
         </div>
         <p class="composer__note">Información orientativa basada en extractos didácticos. No sustituye la asesoría de un abogado.</p>
       </form>
