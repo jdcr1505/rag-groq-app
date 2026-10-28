@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Asistente que responde preguntas sobre normativa colombiana citando documento y página.">
-  <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <title>RAG · Asistente Legal</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%233B82F6'/><stop offset='1' stop-color='%234F46E5'/></linearGradient></defs><rect width='64' height='64' rx='15' fill='url(%23g)'/><text x='32' y='46' font-size='40' text-anchor='middle' fill='white' font-family='Georgia,serif'>§</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><path d='M6 2.5h11l5.5 5.5v17.5H6z' fill='white' stroke='%23141414' stroke-width='1.6' stroke-linejoin='round'/><path d='M17 2.5V8h5.5' fill='none' stroke='%23141414' stroke-width='1.6' stroke-linejoin='round'/><text x='14.2' y='21' font-size='13' font-weight='700' text-anchor='middle' fill='%231d5fbf' font-family='Georgia,serif'>§</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -23,10 +23,14 @@
     <aside class="panel" id="panel" aria-label="Estado y ajustes">
       <div class="panel__top">
         <div class="app-id">
-          <span class="app-icon app-icon--sm" aria-hidden="true">§</span>
+          <svg class="app-mark" viewBox="0 0 28 28" aria-hidden="true">
+            <path class="app-mark__page" d="M6 2.5h11l5.5 5.5v17.5H6z" />
+            <path class="app-mark__fold" d="M17 2.5V8h5.5" />
+            <text class="app-mark__sign" x="14.2" y="21" text-anchor="middle">§</text>
+          </svg>
           <div>
-            <h1>Asistente Legal</h1>
-            <p>Normativa colombiana</p>
+            <p class="app-id__name">Normativa colombiana</p>
+            <p class="app-id__scope">Base de consulta</p>
           </div>
         </div>
         <button type="button" class="icon-btn panel__close" id="btn-close-panel" aria-label="Cerrar">
@@ -90,13 +94,12 @@
         <button type="button" class="icon-btn toolbar__menu" id="btn-open-panel" aria-label="Abrir estado y ajustes" aria-controls="panel" aria-expanded="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3" /><path d="M9.5 4.5v15" /></svg>
         </button>
-        <p class="toolbar__title">Asistente Legal</p>
+        <h1 class="toolbar__title">Asistente Legal</h1>
         <span class="toolbar__status" id="chat-ready" data-state="pending">Preparando</span>
       </header>
 
       <div id="messages" class="chat__messages" role="log" aria-live="polite" aria-relevant="additions">
         <div class="empty-state" id="empty-state">
-          <span class="app-icon" aria-hidden="true">§</span>
           <h2 class="empty-state__title">¿En qué te puedo ayudar?</h2>
           <p class="empty-state__lead">Pregunta sobre peticiones, compras, datos personales, contratos, demandas, impuestos o arriendos. Cada respuesta indica el documento y la página de donde sale.</p>
           <p class="empty-state__wait" id="empty-wait">Preparando la base de conocimientos…</p>

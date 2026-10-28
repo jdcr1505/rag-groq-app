@@ -327,12 +327,32 @@ function renderFuentes(fuentes, citadas) {
     frag.className = "fragment";
     frag.dataset.fuente = f.fuente;
     frag.dataset.pagina = String(f.pagina);
-    if (citadas.has(`${f.fuente}|${f.pagina}`)) frag.classList.add("fragment--cited");
-    const src = document.createElement("span");
-    src.className = "fragment__source";
-    src.textContent = `${f.fuente} — Pág. ${f.pagina}`;
-    frag.appendChild(src);
-    frag.appendChild(document.createTextNode(f.texto));
+    const citada = citadas.has(`${f.fuente}|${f.pagina}`);
+    if (citada) frag.classList.add("fragment--cited");
+
+    // Cabecera tipo libro mayor: documento a la izquierda, página a la derecha
+    const head = document.createElement("div");
+    head.className = "fragment__source";
+    head.title = f.fuente;
+    const doc = document.createElement("span");
+    doc.className = "fragment__doc";
+    doc.textContent = infoDocumento(f.fuente).titulo;
+    head.appendChild(doc);
+    if (citada) {
+      const tag = document.createElement("span");
+      tag.className = "fragment__tag";
+      tag.textContent = "Citada";
+      head.appendChild(tag);
+    }
+    const pag = document.createElement("span");
+    pag.className = "fragment__page";
+    pag.textContent = `Pág. ${f.pagina}`;
+    head.appendChild(pag);
+
+    const texto = document.createElement("p");
+    texto.className = "fragment__text";
+    texto.textContent = f.texto;
+    frag.append(head, texto);
     lista.appendChild(frag);
   });
   det.appendChild(lista);
