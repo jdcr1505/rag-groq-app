@@ -10,3 +10,5 @@ cryptography>=3.1
 python-dotenv>=1.0
 gunicorn>=21.0
 fastembed>=0.3
+groq>=0.9
+tavily-python>=0.5

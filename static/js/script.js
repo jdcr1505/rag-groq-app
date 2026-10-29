@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────────────────────
 // Interfaz del asistente RAG (sin frameworks).
-// Habla con el backend Flask: /api/status, /api/indexed y /api/ask.
+// Habla con el backend Flask: /api/status, /api/indexed, /api/ask y /api/transcribe.
 // ──────────────────────────────────────────────────────────────
 
 const apiStatusEl = document.getElementById("api-status");
@@ -23,11 +23,26 @@ const scrimEl = document.getElementById("scrim");
 const btnOpenPanel = document.getElementById("btn-open-panel");
 const btnClosePanel = document.getElementById("btn-close-panel");
 
+const webToggle = document.getElementById("web-toggle");
+const btnImage = document.getElementById("btn-image");
+const imageInput = document.getElementById("image-input");
+const attachmentEl = document.getElementById("attachment");
+const attachmentImg = document.getElementById("attachment-img");
+const attachmentName = document.getElementById("attachment-name");
+const btnRemoveImage = document.getElementById("btn-remove-image");
+const btnMic = document.getElementById("btn-mic");
+
 const MAX_HISTORY = 6; // mensajes (3 turnos) enviados al backend
+const MAX_LADO_IMAGEN = 1600; // px: la imagen se reduce antes de enviarla
+const MAX_SEGUNDOS_AUDIO = 60;
+const PUEDE_GRABAR = !!(navigator.mediaDevices && window.MediaRecorder);
 
 let vectorStoreListo = false;
 let consultando = false;
 let historial = []; // [{role: "user"|"assistant", content: "..."}]
+let imagenAdjunta = null; // data URL (JPEG) lista para enviar
+let grabadora = null; // MediaRecorder activo
+let transcribiendo = false;
 
 // Copia del estado vacío para restaurarlo con "Nueva conversación"
 const emptyStateTemplate = document.getElementById("empty-state").cloneNode(true);
@@ -71,6 +86,7 @@ async function cargarEstado() {
   }
 
   renderPdfList(data.pdfs);
+  configurarWeb(data.web_ok);
 
   if (data.log && data.log.length) {
     logDetailsEl.hidden = false;
@@ -134,8 +150,157 @@ function marcarVectorStoreListo(mensaje) {
 function habilitarEntrada(activo) {
   preguntaInput.disabled = !activo;
   submitBtn.disabled = !activo;
+  btnImage.disabled = !activo;
+  btnMic.disabled = !activo || !PUEDE_GRABAR || transcribiendo;
   document.querySelectorAll(".example").forEach((b) => { b.disabled = !activo; });
 }
+
+// ───────────────── Búsqueda web (tool opcional) ─────────────────
+
+const CLAVE_WEB = "rag-web-activa";
+
+function configurarWeb(disponible) {
+  webToggle.disabled = !disponible;
+  if (!disponible) {
+    webToggle.checked = false;
+    webToggle.title = "Configura TAVILY_API_KEY en el servidor para activarla";
+    return;
+  }
+  webToggle.title = "";
+  if (webToggle.dataset.init) return;
+  webToggle.dataset.init = "1";
+  try { webToggle.checked = localStorage.getItem(CLAVE_WEB) === "1"; } catch (e) { /* sin almacenamiento */ }
+}
+
+webToggle.addEventListener("change", () => {
+  try { localStorage.setItem(CLAVE_WEB, webToggle.checked ? "1" : "0"); } catch (e) { /* sin almacenamiento */ }
+});
+
+// ───────────────── Imagen adjunta ─────────────────
+
+// Reduce la imagen en el navegador y la convierte a JPEG: pesa menos y
+// queda por debajo del límite de 4 MB de Groq.
+function reducirImagen(archivo) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(archivo);
+    const img = new Image();
+    img.onload = () => {
+      const escala = Math.min(1, MAX_LADO_IMAGEN / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff"; // fondo blanco para PNG con transparencia
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No se pudo leer la imagen."));
+    };
+    img.src = url;
+  });
+}
+
+btnImage.addEventListener("click", () => imageInput.click());
+
+imageInput.addEventListener("change", async () => {
+  const archivo = imageInput.files[0];
+  imageInput.value = "";
+  if (!archivo) return;
+  try {
+    imagenAdjunta = await reducirImagen(archivo);
+    attachmentImg.src = imagenAdjunta;
+    attachmentName.textContent = archivo.name;
+    attachmentEl.hidden = false;
+    preguntaInput.placeholder = "Pregunta (opcional)";
+    preguntaInput.focus();
+  } catch (e) {
+    quitarImagen();
+    agregarMensaje(e.message, "assistant").classList.add("msg--error");
+  }
+});
+
+function quitarImagen() {
+  imagenAdjunta = null;
+  attachmentEl.hidden = true;
+  attachmentImg.removeAttribute("src");
+  preguntaInput.placeholder = "Escribe tu pregunta";
+}
+
+btnRemoveImage.addEventListener("click", () => {
+  quitarImagen();
+  preguntaInput.focus();
+});
+
+// ───────────────── Dictado por voz (Whisper en Groq) ─────────────────
+
+function marcarMic(estado) {
+  // estado: "idle" | "grabando" | "transcribiendo"
+  btnMic.dataset.state = estado;
+  btnMic.setAttribute("aria-pressed", estado === "grabando" ? "true" : "false");
+  btnMic.setAttribute("aria-label",
+    estado === "grabando" ? "Detener grabación" : estado === "transcribiendo" ? "Transcribiendo…" : "Dictar pregunta");
+  btnMic.title = btnMic.getAttribute("aria-label");
+}
+
+async function iniciarGrabacion() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    agregarMensaje("No se pudo acceder al micrófono. Revisa los permisos del navegador.", "assistant")
+      .classList.add("msg--error");
+    return;
+  }
+  const trozos = [];
+  grabadora = new MediaRecorder(stream);
+  grabadora.addEventListener("dataavailable", (e) => { if (e.data.size) trozos.push(e.data); });
+  grabadora.addEventListener("stop", () => {
+    stream.getTracks().forEach((t) => t.stop());
+    clearTimeout(grabadora.limite);
+    const tipo = grabadora.mimeType || "audio/webm";
+    grabadora = null;
+    transcribir(new Blob(trozos, { type: tipo }));
+  });
+  grabadora.start();
+  grabadora.limite = setTimeout(() => grabadora && grabadora.stop(), MAX_SEGUNDOS_AUDIO * 1000);
+  marcarMic("grabando");
+}
+
+async function transcribir(blob) {
+  if (!blob.size) { marcarMic("idle"); return; }
+  transcribiendo = true;
+  marcarMic("transcribiendo");
+  btnMic.disabled = true;
+  const extension = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";
+  const datos = new FormData();
+  datos.append("audio", blob, `grabacion.${extension}`);
+  try {
+    const res = await fetch("/api/transcribe", { method: "POST", body: datos });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "No se pudo transcribir el audio.");
+    const actual = preguntaInput.value.trim();
+    preguntaInput.value = actual ? `${actual} ${data.texto}` : data.texto;
+    ajustarAltura();
+  } catch (e) {
+    agregarMensaje(e.message || "Error de red al transcribir.", "assistant").classList.add("msg--error");
+  } finally {
+    transcribiendo = false;
+    marcarMic("idle");
+    btnMic.disabled = preguntaInput.disabled || !PUEDE_GRABAR;
+    preguntaInput.focus();
+  }
+}
+
+btnMic.addEventListener("click", () => {
+  if (grabadora) grabadora.stop();
+  else if (!transcribiendo) iniciarGrabacion();
+});
+marcarMic("idle");
+if (!PUEDE_GRABAR) btnMic.title = "Este navegador no permite grabar audio";
 
 function activarEstadoVacio() {
   const empty = document.getElementById("empty-state");
@@ -250,6 +415,11 @@ function escapeHtml(s) {
 // Cita con el formato pedido en el prompt: (Fuente: Documento.pdf, Pág. N)
 const CITA_RE = /\(\s*Fuente:\s*([^,()]+?\.pdf)\s*[,—–-]\s*P[áa]g(?:ina)?\.?\s*(\d+)\s*\)/gi;
 
+// Cita de la búsqueda web: (Web: https://...)
+const WEB_RE = /\(\s*Web:\s*(https?:\/\/[^\s()<>"]+?)\s*\)/gi;
+
+const ICONO_WEB = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 2.5 14.4 0 17M12 3.5c-2.5 2.6-2.5 14.4 0 17"/></svg>';
+
 const ICONO_DOC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>';
 
 function formatoInline(texto) {
@@ -262,6 +432,12 @@ function formatoInline(texto) {
       return `<button type="button" class="cite" data-fuente="${archivo.trim()}" data-pagina="${pagina}" ` +
         `title="Ver fragmento de ${archivo.trim()}, página ${pagina}">` +
         `${ICONO_DOC}${corto} <span class="cite__page">p. ${pagina}</span></button>`;
+    })
+    .replace(WEB_RE, (_, url) => {
+      let host = url;
+      try { host = new URL(url.replace(/&amp;/g, "&")).hostname.replace(/^www\./, ""); } catch (e) { /* URL rara: se muestra tal cual */ }
+      return `<a class="cite cite--web" href="${url}" target="_blank" rel="noopener noreferrer" title="${url}">` +
+        `${ICONO_WEB}${escapeHtml(host)}</a>`;
     });
 }
 
@@ -312,11 +488,11 @@ function scrollAlFinal() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function renderFuentes(fuentes, citadas) {
+function renderFuentes(fuentes, citadas, fuentesWeb = []) {
   const det = document.createElement("details");
   det.className = "sources";
   const sum = document.createElement("summary");
-  sum.textContent = `Fuentes (${fuentes.length})`;
+  sum.textContent = `Fuentes (${fuentes.length + fuentesWeb.length})`;
   det.appendChild(sum);
 
   const lista = document.createElement("div");
@@ -355,8 +531,51 @@ function renderFuentes(fuentes, citadas) {
     frag.append(head, texto);
     lista.appendChild(frag);
   });
+
+  fuentesWeb.forEach((w) => {
+    const frag = document.createElement("div");
+    frag.className = "fragment fragment--web";
+    const head = document.createElement("div");
+    head.className = "fragment__source";
+    const link = document.createElement("a");
+    link.className = "fragment__doc";
+    link.href = /^https?:\/\//i.test(w.url) ? w.url : "#";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = w.titulo || w.url;
+    const tag = document.createElement("span");
+    tag.className = "fragment__page";
+    try { tag.textContent = new URL(w.url).hostname.replace(/^www\./, ""); } catch (e) { tag.textContent = "Web"; }
+    head.append(link, tag);
+    const texto = document.createElement("p");
+    texto.className = "fragment__text";
+    texto.textContent = w.texto;
+    frag.append(head, texto);
+    lista.appendChild(frag);
+  });
+
   det.appendChild(lista);
   return det;
+}
+
+// Qué herramientas usó el modelo para responder
+function renderHerramientas(herramientas) {
+  const p = document.createElement("p");
+  p.className = "msg__tools";
+  herramientas.forEach((h) => {
+    const chip = document.createElement("span");
+    chip.className = `tool-chip tool-chip--${h.nombre === "web_search" ? "web" : "doc"}`;
+    chip.innerHTML = h.nombre === "web_search" ? ICONO_WEB : ICONO_DOC;
+    const etiqueta = document.createElement("span");
+    etiqueta.textContent = h.nombre === "web_search" ? "Web: " : "Normativa: ";
+    etiqueta.className = "tool-chip__label";
+    const consulta = document.createElement("span");
+    consulta.textContent = h.consulta;
+    chip.append(etiqueta, consulta);
+    chip.title = h.consulta;
+    p.appendChild(chip);
+  });
+  return p;
 }
 
 function botonCopiar(texto) {
@@ -379,7 +598,7 @@ function botonCopiar(texto) {
 // Clic en un sello de cita: abre las fuentes y resalta el fragmento correspondiente
 messagesEl.addEventListener("click", (e) => {
   const cite = e.target.closest(".cite");
-  if (!cite) return;
+  if (!cite || cite.classList.contains("cite--web")) return;
   const msg = cite.closest(".msg");
   const det = msg && msg.querySelector(".sources");
   if (!det) return;
@@ -402,6 +621,7 @@ messagesEl.addEventListener("click", (e) => {
 
 btnReset.addEventListener("click", () => {
   historial = [];
+  quitarImagen();
   messagesEl.replaceChildren(emptyStateTemplate.cloneNode(true));
   activarEstadoVacio();
   cerrarPanel();
@@ -428,13 +648,23 @@ chatForm.addEventListener("submit", (e) => {
 });
 
 async function enviarPregunta(pregunta) {
-  if (!pregunta || !vectorStoreListo || consultando) return;
+  const imagen = imagenAdjunta;
+  if ((!pregunta && !imagen) || !vectorStoreListo || consultando || grabadora || transcribiendo) return;
   consultando = true;
 
   const empty = document.getElementById("empty-state");
   if (empty) empty.remove();
 
-  agregarMensaje(pregunta, "user");
+  const msgUsuario = agregarMensaje(pregunta, "user");
+  if (imagen) {
+    const thumb = document.createElement("img");
+    thumb.className = "msg__image";
+    thumb.src = imagen;
+    thumb.alt = "Imagen adjunta";
+    msgUsuario.insertBefore(thumb, msgUsuario.firstChild);
+    if (!pregunta) msgUsuario.querySelector(".msg__body").remove();
+  }
+  quitarImagen();
   preguntaInput.value = "";
   ajustarAltura();
   habilitarEntrada(false);
@@ -452,6 +682,8 @@ async function enviarPregunta(pregunta) {
         pregunta,
         k: Number(kSlider.value),
         historial: historial.slice(-MAX_HISTORY),
+        web: webToggle.checked,
+        imagen,
       }),
     });
     const data = await res.json();
@@ -464,11 +696,17 @@ async function enviarPregunta(pregunta) {
       body.innerHTML = renderRespuesta(data.respuesta);
       if (data.sin_respuesta) pensando.classList.add("msg--abstain");
 
-      // Guardar el turno en el historial (solo si salió bien)
-      historial.push({ role: "user", content: pregunta });
+      // Guardar el turno en el historial (solo si salió bien). Si hubo imagen,
+      // se guarda su descripción para que las preguntas de seguimiento la entiendan.
+      const turno = data.descripcion_imagen
+        ? `[Imagen adjunta: ${data.descripcion_imagen}]\n${pregunta}`
+        : pregunta;
+      historial.push({ role: "user", content: turno });
       historial.push({ role: "assistant", content: data.respuesta });
 
-      if (data.pregunta_independiente && data.pregunta_independiente !== pregunta) {
+      if (data.herramientas && data.herramientas.length) {
+        pensando.appendChild(renderHerramientas(data.herramientas));
+      } else if (data.pregunta_independiente && data.pregunta_independiente !== pregunta) {
         const re = document.createElement("p");
         re.className = "msg__rewrite";
         re.append("Interpretada como: ");
@@ -483,17 +721,21 @@ async function enviarPregunta(pregunta) {
 
       const meta = document.createElement("span");
       meta.className = "msg__meta";
+      const fuentesWeb = data.fuentes_web || [];
+      const usoHerramientas = (data.herramientas || []).length > 0 || data.n_recuperados > 0;
+      const partes = [`~${data.tokens_contexto_aprox} tokens de contexto`, `${data.n_recuperados} fragmentos`];
+      if (fuentesWeb.length) partes.push(`${fuentesWeb.length} resultados web`);
       meta.textContent = data.sin_respuesta
         ? "Sin información en la base de conocimientos"
-        : `~${data.tokens_contexto_aprox} tokens de contexto · ${data.n_recuperados} fragmentos recuperados`;
+        : usoHerramientas ? partes.join(" · ") : "Respondida sin consultar documentos";
       footer.appendChild(meta);
       footer.appendChild(botonCopiar(data.respuesta));
 
-      if (data.fuentes && data.fuentes.length) {
+      if ((data.fuentes && data.fuentes.length) || fuentesWeb.length) {
         const citadas = new Set(
-          [...body.querySelectorAll(".cite")].map((c) => `${c.dataset.fuente}|${c.dataset.pagina}`)
+          [...body.querySelectorAll(".cite:not(.cite--web)")].map((c) => `${c.dataset.fuente}|${c.dataset.pagina}`)
         );
-        footer.appendChild(renderFuentes(data.fuentes, citadas));
+        footer.appendChild(renderFuentes(data.fuentes || [], citadas, fuentesWeb));
       }
       pensando.appendChild(footer);
     }

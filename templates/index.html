@@ -74,8 +74,13 @@
             </div>
             <input type="range" id="k-slider" min="1" max="15" value="8" aria-describedby="k-hint">
           </div>
+          <div class="row">
+            <label for="web-toggle" class="row__label">Búsqueda web</label>
+            <input type="checkbox" id="web-toggle" class="switch" role="switch" disabled aria-describedby="web-hint">
+          </div>
         </div>
-        <p class="group__footer" id="k-hint">Cuántos fragmentos de los documentos recibe el modelo. Con 8 se obtuvo el mejor resultado en la evaluación.</p>
+        <p class="group__footer" id="k-hint">Cuántos fragmentos recibe el modelo en cada búsqueda. Con 8 se obtuvo el mejor resultado en la evaluación.</p>
+        <p class="group__footer" id="web-hint">Permite consultar internet para datos actuales. Las respuestas siguen priorizando los documentos.</p>
       </section>
 
       <section class="group group--end">
@@ -106,7 +111,7 @@
         <div class="empty-state" id="empty-state">
           <span class="eyebrow">Normativa colombiana</span>
           <h2 class="empty-state__title">¿En qué te puedo ayudar?</h2>
-          <p class="empty-state__lead">Pregunta sobre peticiones, compras, datos personales, contratos, demandas, impuestos o arriendos. Cada respuesta indica el documento y la página de donde sale.</p>
+          <p class="empty-state__lead">Pregunta sobre peticiones, compras, datos personales, contratos, demandas, impuestos o arriendos. Cada respuesta indica el documento y la página de donde sale. También puedes dictar tu pregunta o adjuntar la foto de un documento.</p>
           <p class="empty-state__wait" id="empty-wait">Preparando la base de conocimientos…</p>
           <div class="suggestions" id="examples" aria-label="Preguntas sugeridas">
             <button type="button" class="example" disabled>¿En cuántos días debe resolverse una petición ante una autoridad?</button>
@@ -119,17 +124,31 @@
 
       <form id="chat-form" class="composer-wrap">
         <div class="composer-shell">
+        <div class="attachment" id="attachment" hidden>
+          <img id="attachment-img" alt="Imagen adjunta">
+          <span class="attachment__name" id="attachment-name"></span>
+          <button type="button" class="icon-btn attachment__remove" id="btn-remove-image" aria-label="Quitar imagen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>
+          </button>
+        </div>
         <div class="composer">
+          <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp" hidden>
+          <button type="button" class="icon-btn tool-btn" id="btn-image" aria-label="Adjuntar imagen" title="Adjuntar imagen" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="3" /><circle cx="9" cy="10" r="1.6" /><path d="M20.5 15.5l-4.5-4.5-8 8" /></svg>
+          </button>
           <label for="pregunta-input" class="visually-hidden">Tu pregunta</label>
           <textarea
             id="pregunta-input"
             rows="1"
             maxlength="1000"
-            placeholder="Pregunta sobre la normativa"
+            placeholder="Escribe tu pregunta"
             autocomplete="off"
             enterkeyhint="send"
             disabled
           ></textarea>
+          <button type="button" class="icon-btn tool-btn" id="btn-mic" aria-label="Dictar pregunta" title="Dictar pregunta" aria-pressed="false" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3.5" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0013 0M12 18v2.5" /></svg>
+          </button>
           <button type="submit" class="send" disabled aria-label="Enviar pregunta">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
           </button>

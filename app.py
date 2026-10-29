@@ -8,7 +8,10 @@ El servidor es stateless respecto a la conversación: el navegador envía el
 historial en cada petición, así varios usuarios no mezclan sus diálogos.
 """
 
+import base64
+import binascii
 import os
+import re
 import threading
 import traceback
 
@@ -22,6 +25,11 @@ from datetime import datetime
 LOG_FILE = "interactions.jsonl"
 
 
+MAX_IMAGEN_BYTES = 4 * 1024 * 1024   # límite de Groq para imágenes en base64
+MAX_AUDIO_BYTES = 20 * 1024 * 1024
+MIME_IMAGEN = ("image/jpeg", "image/png", "image/webp")
+
+
 def registrar_interaccion(pregunta, r, k):
     registro = {
         "fecha": datetime.now().isoformat(timespec="seconds"),
@@ -29,6 +37,8 @@ def registrar_interaccion(pregunta, r, k):
         "pregunta_independiente": r["pregunta_independiente"],
         "respuesta": r["respuesta"],
         "sin_respuesta": r["sin_respuesta"],
+        "modo": r.get("modo"),
+        "herramientas": r.get("herramientas", []),
         "k": k,
         "contextos": [f["texto"] for f in r["fuentes"]],
         "fuentes": [{"fuente": f["fuente"], "pagina": f["pagina"]} for f in r["fuentes"]],
@@ -40,6 +50,7 @@ def registrar_interaccion(pregunta, r, k):
         pass
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
 state = {
     "vector_store": None,
@@ -97,6 +108,7 @@ def api_status():
     return jsonify({
         "api_key_ok": api_key_ok,
         "api_key_error": api_key_error,
+        "web_ok": rag_core.web_search_disponible(),
         "pdfs": rag_core.list_pdfs(),
         "init_status": state["init_status"],
         "init_error": state["init_error"],
@@ -124,7 +136,15 @@ def api_ask():
     except (TypeError, ValueError):
         k = rag_core.DEFAULT_K
     historial = _limpiar_historial(data.get("historial"))
+    usar_web = bool(data.get("web"))
 
+    try:
+        imagen = _leer_imagen(data.get("imagen"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    if not pregunta and imagen:
+        pregunta = "¿Qué dice la normativa sobre lo que aparece en esta imagen?"
     if not pregunta:
         return jsonify({"error": "La pregunta está vacía."}), 400
     if state["vector_store"] is None:
@@ -134,29 +154,78 @@ def api_ask():
         if state["llm"] is None:
             state["llm"] = rag_core.get_llm()
 
-        r = rag_core.rag_pipeline(
-            pregunta, state["vector_store"], state["llm"], k=k, historial=historial
+        descripcion = None
+        if imagen:
+            descripcion = rag_core.describir_imagen(imagen["base64"], imagen["mime"], pregunta)
+
+        r = rag_core.agent_pipeline(
+            pregunta, state["vector_store"], state["llm"], k=k, historial=historial,
+            usar_web=usar_web, descripcion_imagen=descripcion,
         )
         registrar_interaccion(pregunta, r, k)
 
         fuentes = [
             {**f, "texto": f["texto"][:500]} for f in r["fuentes"]
         ]
+        fuentes_web = [
+            {**w, "texto": w["texto"][:500]} for w in r.get("fuentes_web", [])
+        ]
 
         return jsonify({
             "respuesta": r["respuesta"],
             "sin_respuesta": r["sin_respuesta"],
             "pregunta_independiente": r["pregunta_independiente"],
+            "herramientas": r.get("herramientas", []),
+            "descripcion_imagen": descripcion,
             "fuentes": [] if r["sin_respuesta"] else fuentes,
+            "fuentes_web": [] if r["sin_respuesta"] else fuentes_web,
             "tokens_contexto_aprox": r["tokens_contexto_aprox"],
             "n_recuperados": len(r["fuentes"]),
         })
-    
+
     except Exception as e:
         traceback.print_exc()  # el detalle técnico queda solo en la consola/logs
         if rag_core.es_rate_limit(e):
             return jsonify({"error": "El servicio está recibiendo muchas consultas. Espera unos segundos e inténtalo de nuevo."}), 429
         return jsonify({"error": "Ocurrió un error al procesar tu consulta. Inténtalo de nuevo en un momento."}), 500
+
+
+@app.route("/api/transcribe", methods=["POST"])
+def api_transcribe():
+    """Recibe el audio grabado en el navegador y lo transcribe con Whisper (Groq)."""
+    archivo = request.files.get("audio")
+    if archivo is None:
+        return jsonify({"error": "No se recibió audio."}), 400
+    audio = archivo.read()
+    if not audio:
+        return jsonify({"error": "La grabación está vacía."}), 400
+    if len(audio) > MAX_AUDIO_BYTES:
+        return jsonify({"error": "La grabación es demasiado larga."}), 400
+
+    try:
+        texto = rag_core.transcribir_audio(audio, archivo.filename or "grabacion.webm")
+        return jsonify({"texto": texto})
+    except Exception as e:
+        traceback.print_exc()
+        if rag_core.es_rate_limit(e):
+            return jsonify({"error": "El servicio está recibiendo muchas consultas. Espera unos segundos e inténtalo de nuevo."}), 429
+        return jsonify({"error": "No se pudo transcribir el audio. Inténtalo de nuevo."}), 500
+
+
+def _leer_imagen(raw):
+    """Valida la imagen enviada como data URL (data:image/jpeg;base64,...)."""
+    if not raw:
+        return None
+    m = re.match(r"^data:(image/[a-z+]+);base64,([A-Za-z0-9+/=]+)$", str(raw))
+    if not m or m.group(1) not in MIME_IMAGEN:
+        raise ValueError("Formato de imagen no admitido. Usa JPG, PNG o WebP.")
+    if len(m.group(2)) > MAX_IMAGEN_BYTES:
+        raise ValueError("La imagen es demasiado grande (máximo 4 MB).")
+    try:
+        base64.b64decode(m.group(2), validate=True)
+    except binascii.Error:
+        raise ValueError("La imagen está dañada.")
+    return {"mime": m.group(1), "base64": m.group(2)}
 
 
 if __name__ == "__main__":

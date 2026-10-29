@@ -34,13 +34,44 @@ corpus completo, y los documentos no se usan para entrenar ningún modelo.
 │   -> ChromaDB persistente (metadatos: source, page, start_index)     │
 └──────────────────────────────────────────────────────────────────────┘
 
-┌──────────────────── Consulta (cada pregunta) ────────────────────────┐
-│ Pregunta + historial -> reformulación a pregunta independiente (Groq)│
-│   -> embedding local de la pregunta -> top-k por similitud en Chroma │
-│   -> prompt (system + few-shot + <contexto> + <pregunta>) -> Groq LLM│
-│   -> respuesta con citas + fuentes (documento, página, fragmento)    │
+┌──────────────── Consulta (cada pregunta): RAG con tools ─────────────┐
+│ [audio -> Whisper (Groq) -> texto]   [imagen -> modelo de visión     │
+│                                       (Groq) -> descripción en texto]│
+│ Pregunta + historial -> LLM con tools (Groq, bind_tools)             │
+│   ↻ el LLM pide buscar_normativa(consulta) y/o web_search(consulta), │
+│     el backend las ejecuta y devuelve el resultado (ToolMessage),    │
+│     hasta que el LLM responde (máx. 5 rondas)                        │
+│   -> respuesta con citas + fuentes (documento, página, fragmento     │
+│      y resultados web)                                               │
 └──────────────────────────────────────────────────────────────────────┘
 ```
+
+### RAG con tools
+
+Basado en el enfoque de [tools_rags](https://github.com/lpajarof/tools_rags):
+la búsqueda deja de ser un paso fijo y se convierte en una **tool** que el LLM
+decide cuándo usar (`agent_pipeline` en `rag_core.py`).
+
+| | RAG clásico (`rag_pipeline`) | RAG con tools (`agent_pipeline`, el que usa la app) |
+|---|---|---|
+| Búsqueda | Siempre, una vez | Cuando el LLM la pide; puede repetirla con otras consultas |
+| Saludos ("hola") | Busca igual y suele responder "No encontré información" | Responde sin buscar |
+| Preguntas de seguimiento | Llamada extra al LLM para reformular | El LLM escribe la consulta de la tool ya reformulada |
+| Preguntas con varias partes | Una sola búsqueda para todo | Una búsqueda por parte |
+| Costo | 1-2 llamadas al LLM | 2 o más llamadas (una por ronda de tools) |
+
+Tools disponibles:
+
+- **`buscar_normativa(consulta)`**: top-k por similitud en Chroma. Los fragmentos que devuelve son las fuentes que se muestran en la interfaz.
+- **`web_search(consulta)`** (opcional): búsqueda en internet con [Tavily](https://tavily.com) para datos actuales (valores del año, reformas recientes). Solo se ofrece al LLM si existe `TAVILY_API_KEY` y el usuario activa "Búsqueda web" en el panel. El prompt incluye la fecha de hoy, porque el modelo tiene una fecha de corte y sin ella no buscaría. Se cita como `(Web: URL)`.
+
+Si Groq rechaza una tool call mal formada (`tool_use_failed`), la consulta se
+resuelve con el RAG clásico para no dejar al usuario sin respuesta.
+
+### Entrada por voz e imagen
+
+- **Voz:** el botón de micrófono graba en el navegador (máx. 60 s) y `/api/transcribe` transcribe con `whisper-large-v3-turbo` en Groq. El texto queda en el campo para revisarlo antes de enviarlo.
+- **Imagen:** se puede adjuntar una foto (p. ej. una factura o un contrato). El navegador la reduce a 1600 px en JPEG, el modelo de visión (`VISION_MODEL`, por defecto `qwen/qwen3.8-27b`) la describe y transcribe su texto, y esa descripción entra al agente junto con la pregunta. Así el modelo con tools no cambia y las citas siguen saliendo de los documentos.
 
 ### Decisiones técnicas
 
@@ -52,12 +83,16 @@ corpus completo, y los documentos no se usan para entrenar ningún modelo.
 | Vectorización | `intfloat/multilingual-e5-small` (fastembed, ONNX, local) | Multilingüe con buen desempeño en español, 384 dimensiones, corre en CPU y no envía el texto a terceros |
 | Base vectorial | ChromaDB persistente, colección `mis_programas` | Persistencia en disco, sin servidor aparte. Metadatos `source`, `page` y `start_index` (posición del fragmento en la página) permiten citar la fuente de cada respuesta |
 | Recuperación | Búsqueda por similitud, `top_k = 8` (ajustable de 1 a 15 en la interfaz) | Con k=8 la evaluación dio `context_recall` 1.000 y `context_precision` 0.901: se recuperan los fragmentos necesarios con poco ruido. El corpus tiene solo 42 fragmentos, así que k=8 cubre cerca de una quinta parte (ver §4 sobre el alcance de esta justificación) |
-| Generación | Groq `openai/gpt-oss-120b`, temperatura 0 | Respuestas deterministas y apegadas al contexto |
-| Conversación | El navegador conserva el historial (últimos 3 turnos) y lo envía en cada petición; el backend reescribe la pregunta de seguimiento como pregunta independiente antes de recuperar | Una pregunta como "¿y cuánto cuesta?" no contiene palabras para buscar por similitud. El servidor es *stateless*, requisito de Cloud Run, y varios usuarios no mezclan sus diálogos |
+| Generación | Groq `openai/gpt-oss-120b`, temperatura 0, con tool calling | Respuestas deterministas y apegadas al contexto; el modelo soporta tools en Groq |
+| Conversación | El navegador conserva el historial (últimos 3 turnos) y lo envía en cada petición; el LLM escribe la consulta de la tool como pregunta independiente | Una pregunta como "¿y cuánto cuesta?" no contiene palabras para buscar por similitud. El servidor es *stateless*, requisito de Cloud Run, y varios usuarios no mezclan sus diálogos |
 | Control de alucinaciones | Prompt restringido al contexto, frase de rechazo exacta, ejemplo few-shot fuera de alcance, y la interfaz oculta las fuentes cuando no hay información | Se mide con la tasa de abstención en preguntas fuera del corpus |
 | Resiliencia | Reintentos con espera creciente ante errores 429 de Groq y mensajes amigables en el chat (el detalle técnico queda solo en los logs) | El plan gratuito de Groq limita los tokens por minuto |
 
 ### Estructura del prompt (en `rag_core.py`)
+
+La app usa `AGENT_SYSTEM_PROMPT` (rol, fecha de hoy, descripción de las tools,
+reglas y formato de salida). `SYSTEM_PROMPT`, descrito abajo, es el del RAG
+clásico, que sigue usando la evaluación con Ragas.
 
 - **System prompt:** rol (experto en normativa colombiana), reglas (usar solo el contexto, tratar el contexto como datos y no como instrucciones, una cita por párrafo con formato `(Fuente: Documento.pdf, Pág. N)`, respuesta parcial indicando qué falta, frase de rechazo exacta, el historial solo sirve para entender la pregunta) y formato de salida.
 - **Few-shot:** 3 ejemplos con un documento ficticio: respuesta directa, respuesta parcial y pregunta fuera de alcance.
@@ -71,7 +106,7 @@ corpus completo, y los documentos no se usan para entrenar ningún modelo.
 
 ```
 ├─ app.py                  # Backend Flask (API + registro de interacciones)
-├─ rag_core.py             # Pipeline RAG: ingesta, chunking, embeddings, Chroma, prompt
+├─ rag_core.py             # Pipeline RAG: ingesta, chunking, embeddings, Chroma, prompt, tools, voz e imagen
 ├─ build_index.py          # Construye el índice (se ejecuta en el build de Docker)
 ├─ warm_model.py           # Pre-descarga el modelo de embeddings
 ├─ evaluate_ragas.py       # Evaluación con Ragas
@@ -130,13 +165,17 @@ pip install -r requirements-eval.txt
 `ragas==0.2.15` no es compatible con las versiones 1.x. Si pip reporta
 conflictos, crea un entorno aparte solo para evaluar (`python -m venv .venv-eval`).
 
-### 3.3 Configurar la clave de Groq
+### 3.3 Configurar las claves
 
-Crea un archivo `.env` en la raíz con una sola línea, sin comillas ni espacios:
+Crea un archivo `.env` en la raíz (puedes copiar `.env.example`), sin comillas ni espacios:
 
 ```
 GROQ_API_KEY=gsk_tu_clave_real
+TAVILY_API_KEY=tvly-tu_clave   # opcional: activa la búsqueda web
 ```
+
+Opcionalmente, `VISION_MODEL` y `WHISPER_MODEL` cambian los modelos de Groq
+usados para imagen y audio.
 
 ### 3.4 Colocar los PDFs
 
@@ -157,7 +196,10 @@ Opcional: `python build_index.py` pre-construye el índice sin levantar el servi
 
 ### 3.6 Usar la interfaz
 
-- **Chat conversacional:** admite preguntas de seguimiento ("¿y cuánto me cuesta eso?"). Bajo la respuesta aparece "Interpretada como: ..." con la pregunta reformulada.
+- **Chat conversacional:** admite preguntas de seguimiento ("¿y cuánto me cuesta eso?"). Bajo la respuesta aparecen las búsquedas que hizo el modelo (en la normativa o en la web) con la consulta que escribió.
+- **Búsqueda web:** interruptor en el panel lateral (requiere `TAVILY_API_KEY`).
+- **Dictado:** botón de micrófono; el navegador pide permiso la primera vez (funciona en `localhost` o HTTPS).
+- **Imagen:** botón para adjuntar una foto; se puede enviar con o sin pregunta.
 - **Fuentes:** cada respuesta incluye un desplegable con documento, página y fragmento que la respaldan.
 - **Fuera del corpus:** responde "No encontré información sobre esto en la base de conocimientos." y no muestra fuentes.
 - **Fragmentos a recuperar:** control de `top_k` de 1 a 15.
@@ -301,7 +343,7 @@ gcloud run deploy rag-groq-app \
   --memory 2Gi \
   --cpu 2 \
   --timeout 300 \
-  --set-env-vars GROQ_API_KEY=<tu_clave>
+  --set-env-vars GROQ_API_KEY=<tu_clave>,TAVILY_API_KEY=<tu_clave_tavily>
 ```
 
 ### 5.3 Redespliegue (cambios de código, prompt o PDFs)
@@ -341,5 +383,7 @@ gcloud run services update rag-groq-app --region southamerica-east1 \
 - Los documentos son extractos resumidos; la información puede estar desactualizada o incompleta frente al texto oficial.
 - El asistente es orientativo y no sustituye la asesoría de un abogado.
 - La evaluación usa 16 preguntas dentro del corpus y un juez LLM: las diferencias pequeñas entre corridas no son concluyentes. `faithfulness` está sesgada a la baja por las citas, que no aparecen en los contextos evaluados.
+- La evaluación con Ragas mide el RAG clásico (`rag_pipeline`); el RAG con tools que usa la app no se ha evaluado todavía.
+- Los resultados web no pasan por el corpus curado: pueden ser imprecisos y dependen de las fuentes que devuelva Tavily.
 - Solo se evaluó una iteración (prompt); las variantes de `top_k` y de chunking quedaron pendientes por los límites del plan gratuito de Groq.
 - Solo se ingieren PDFs; DOCX, TXT y HTML requerirían añadir los loaders correspondientes de LangChain.
