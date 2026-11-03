@@ -73,12 +73,21 @@ resuelve con el RAG clásico para no dejar al usuario sin respuesta.
 - **Voz:** el botón de micrófono graba en el navegador (máx. 60 s) y `/api/transcribe` transcribe con `whisper-large-v3-turbo` en Groq. El texto queda en el campo para revisarlo antes de enviarlo.
 - **Imagen:** se puede adjuntar una foto (p. ej. una factura o un contrato). El navegador la reduce a 1600 px en JPEG, el modelo de visión (`VISION_MODEL`, por defecto `qwen/qwen3.8-27b`) la describe y transcribe su texto, y esa descripción entra al agente junto con la pregunta. Así el modelo con tools no cambia y las citas siguen saliendo de los documentos.
 
+### Formatos de documento y citas
+
+La carpeta `pdfs/` acepta `.pdf`, `.docx` y `.tex`. Un `.docx` o un `.tex` no guarda páginas (la paginación se calcula al abrir o compilar el archivo), por eso:
+
+- **PDF:** una unidad por página; se cita `(Fuente: archivo.pdf, Pág. N)`.
+- **DOCX y TEX:** el texto se divide en secciones; cada línea que empieza con «Artículo N.» abre una sección y se cita `(Fuente: archivo.docx, Art. N)`. El texto anterior al primer artículo queda como `Inicio`. Si no hay artículos pero sí títulos (estilos de título de Word o `\section` de LaTeX), la sección se cita por el título; si no hay ni lo uno ni lo otro, como `Texto completo`.
+- Un artículo largo se parte en varios fragmentos que conservan la misma ubicación. El prompt de evaluación (RAG clásico) no cambió; el de la aplicación pide la cita con el formato que traiga el encabezado del fragmento.
+- Al cambiar la forma de leer los documentos (`INGEST_VERSION` en `rag_core.py`) o los archivos de `pdfs/`, el índice se reconstruye solo.
+
 ### Decisiones técnicas
 
 | Etapa | Decisión | Justificación |
 |---|---|---|
 | Selección de documentos | 7 fragmentos normativos: Ley 1437/2011 (CPACA), Ley 1480/2011 (Estatuto del Consumidor), Ley 1581/2012 (datos personales), Código Civil (obligaciones y responsabilidad), Ley 1564/2012 (Código General del Proceso), Estatuto Tributario y Ley 820/2003 (arrendamiento de vivienda) | Cubren trámites y derechos que una persona enfrenta a diario (peticiones, garantías, retracto, datos, contratos, demandas, sanciones tributarias, arriendo). Son textos con estructura por artículos, ideales para recuperación y citación precisa |
-| Ingesta | `PyPDFLoader` (PDF) | Conserva `source` y `page` por página, necesarios para citar. El código solo carga `.pdf` |
+| Ingesta | `PyPDFLoader` (PDF) y lectores propios para `.docx` y `.tex` (`loaders.py`, sin dependencias nuevas) | Los PDF conservan `source` y `page` por página. DOCX y TEX no tienen páginas fijas, así que se dividen por artículo y se citan como `Art. N` (ver «Formatos de documento y citas») |
 | Chunking | `RecursiveCharacterTextSplitter`, 800 caracteres, solape 150, separadores `\n\n`, `\n`, `.`, ` ` | Un artículo corto cabe en un fragmento; el solape (~19 %) evita perder ideas en los límites; cortar primero por párrafo y oración respeta la estructura legal. Resultado: 14 páginas -> 42 fragmentos |
 | Vectorización | `intfloat/multilingual-e5-small` (fastembed, ONNX, local) | Multilingüe con buen desempeño en español, 384 dimensiones, corre en CPU y no envía el texto a terceros |
 | Base vectorial | ChromaDB persistente, colección `mis_programas` | Persistencia en disco, sin servidor aparte. Metadatos `source`, `page` y `start_index` (posición del fragmento en la página) permiten citar la fuente de cada respuesta |
@@ -107,6 +116,7 @@ clásico, que sigue usando la evaluación con Ragas.
 ```
 ├─ app.py                  # Backend Flask (API + registro de interacciones)
 ├─ rag_core.py             # Pipeline RAG: ingesta, chunking, embeddings, Chroma, prompt, tools, voz e imagen
+├─ loaders.py              # Lectores de .docx y .tex (secciones por artículo)
 ├─ build_index.py          # Construye el índice (se ejecuta en el build de Docker)
 ├─ warm_model.py           # Pre-descarga el modelo de embeddings
 ├─ evaluate_ragas.py       # Evaluación con Ragas
@@ -179,7 +189,7 @@ usados para imagen y audio.
 
 ### 3.4 Colocar los PDFs
 
-Copia los documentos del corpus en `pdfs/`.
+Copia los documentos del corpus en `pdfs/` (la carpeta conserva ese nombre): `.pdf`, `.docx` o `.tex`.
 
 ### 3.5 Ejecutar la aplicación
 
@@ -386,4 +396,4 @@ gcloud run services update rag-groq-app --region southamerica-east1 \
 - La evaluación con Ragas mide el RAG clásico (`rag_pipeline`); el RAG con tools que usa la app no se ha evaluado todavía.
 - Los resultados web no pasan por el corpus curado: pueden ser imprecisos y dependen de las fuentes que devuelva Tavily.
 - Solo se evaluó una iteración (prompt); las variantes de `top_k` y de chunking quedaron pendientes por los límites del plan gratuito de Groq.
-- Solo se ingieren PDFs; DOCX, TXT y HTML requerirían añadir los loaders correspondientes de LangChain.
+- Se ingieren PDF, DOCX y TEX; TXT y HTML requerirían añadir su lector. En DOCX y TEX la cita es por artículo (`Art. N`), no por página, y los lectores esperan líneas «Artículo N.» al inicio de cada artículo; sin ellas, el texto se divide por títulos o se cita como un solo bloque. No se leen cuadros de texto, notas al pie ni imágenes de los DOCX, ni fórmulas de los TEX.

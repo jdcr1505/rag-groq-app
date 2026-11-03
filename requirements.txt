@@ -12,3 +12,4 @@ gunicorn>=21.0
 fastembed>=0.3
 groq>=0.9
 tavily-python>=0.5
+psycopg[binary]>=3.1

@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Consulta la normativa colombiana en lenguaje claro. Cada respuesta cita el documento y la página o el artículo de donde sale.">
+  <meta name="theme-color" content="#080808">
+
+  <title>Normativa colombiana · Asistente Legal</title>
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Crect width='28' height='28' rx='6' fill='black'/%3E%3Ctext x='14' y='21' font-size='18' font-weight='700' text-anchor='middle' fill='white' font-family='Georgia,serif'%3E%C2%A7%3C/text%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://images.unsplash.com">
+
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+
+<body>
+
+  <a class="skip" href="#funciones">Ir al contenido</a>
+
+  <!-- Navegación y portada -->
+  <header class="hero" id="inicio">
+
+    <nav class="nav wrap" aria-label="Principal">
+
+      <a class="brand" href="#inicio" aria-label="Normativa colombiana, inicio">
+        <span class="brand__mark" aria-hidden="true">§</span>
+        <span class="brand__name">Normativa colombiana</span>
+      </a>
+
+      <ul class="nav__links">
+        <li><a href="#funciones">Funciones</a></li>
+        <li><a href="#ejemplo">Ejemplo</a></li>
+        <li><a href="#normas">Normas</a></li>
+      </ul>
+
+      <div class="nav__actions">
+        {% if usuario %}
+          <a class="btn btn--solid btn--nav" href="{{ url_for('chat') }}">
+            Ir al asistente
+          </a>
+        {% else %}
+          <a class="nav__login" href="{{ url_for('acceso') }}">Ingresar</a>
+          <a class="btn btn--solid btn--nav" href="{{ url_for('acceso', modo='registro') }}">
+            Crear cuenta
+          </a>
+        {% endif %}
+      </div>
+
+    </nav>
+
+    <div class="hero__grid wrap">
+
+      <div class="hero__copy">
+
+        <p class="eyebrow hero__eyebrow" data-reveal>
+          CONOCIMIENTO JURÍDICO, MÁS CERCA
+        </p>
+
+        <h1 class="hero__title">
+          <span class="title-line">
+            <span>Pregúntale</span>
+          </span>
+          <span class="title-line title-line--accent">
+            <span>a la ley.</span>
+          </span>
+        </h1>
+
+        <p class="hero__lead" data-reveal data-delay="120">
+          Consulta la normativa colombiana en lenguaje claro.
+          Cada respuesta cita el documento y la página o el artículo
+          de donde sale, para que puedas verificarla.
+        </p>
+
+        <div class="hero__cta" data-reveal data-delay="220">
+
+          {% if usuario %}
+            <a class="btn btn--solid btn--lg" href="{{ url_for('chat') }}">
+              Ir al asistente <span aria-hidden="true">↗</span>
+            </a>
+          {% else %}
+            <a class="btn btn--solid btn--lg" href="{{ url_for('acceso', modo='registro') }}">
+              Crear cuenta gratis <span aria-hidden="true">↗</span>
+            </a>
+
+            <a class="btn btn--line btn--lg" href="{{ url_for('acceso') }}">
+              Ya tengo cuenta
+            </a>
+          {% endif %}
+
+        </div>
+
+        <div class="hero__proof" data-reveal data-delay="320">
+          <span class="proof-dot"></span>
+          <span>Respuestas respaldadas por documentos</span>
+        </div>
+
+      </div>
+
+      <div class="hero__visual" data-parallax>
+
+        <img
+          class="hero__image"
+          src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1500&q=85"
+          alt="Mazo de juez y libros jurídicos sobre una mesa"
+          fetchpriority="high"
+        >
+
+        <div class="hero__image-shade"></div>
+
+        <div class="hero__image-caption">
+          <span class="caption-rule"></span>
+          <span>JUSTICIA · CONOCIMIENTO · CLARIDAD</span>
+        </div>
+
+        <div class="hero__floating-card">
+          <span class="floating-card__icon">§</span>
+          <span>
+            <strong>Consulta con contexto</strong>
+            <small>Fuentes identificables y verificables</small>
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="hero__bottom wrap">
+      <span>UNA NUEVA FORMA DE CONSULTAR LA LEY</span>
+
+      <a href="#funciones" class="scroll-cue" aria-label="Desplazarse a funciones">
+        <span></span> DESCUBRIR
+      </a>
+    </div>
+
+  </header>
+
+  <main>
+
+    <!-- Introducción -->
+    <section class="intro-band">
+
+      <div class="wrap intro-band__inner" data-reveal>
+        <p>
+          La información jurídica no debería ser difícil de encontrar
+          ni de entender.
+        </p>
+
+        <span>01 / UNA HERRAMIENTA PARA CONSULTAR MEJOR</span>
+      </div>
+
+    </section>
+
+    <!-- Funciones -->
+    <section class="sec sec--light" id="funciones" aria-labelledby="h-funciones">
+
+      <div class="wrap">
+
+        <div class="section-heading" data-reveal>
+
+          <p class="eyebrow eyebrow--dark">QUÉ PUEDES HACER</p>
+
+          <h2 class="sec__title" id="h-funciones">
+            La ley, explicada con <em>fundamento.</em>
+          </h2>
+
+          <p class="section-heading__text">
+            Una experiencia de consulta pensada para ayudarte a encontrar
+            información, comprenderla y volver a su fuente.
+          </p>
+
+        </div>
+
+        <div class="feature-layout">
+
+          <figure class="feature-photo" data-reveal="image">
+
+            <img
+              src="https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&w=1200&q=85"
+              alt="Biblioteca jurídica con libros y estanterías"
+              loading="lazy"
+            >
+
+            <figcaption>
+              <span>01</span> CONOCIMIENTO A TU ALCANCE
+            </figcaption>
+
+          </figure>
+
+          <ul class="funcs">
+
+            <li class="func" data-reveal>
+              <span class="func__number">01</span>
+              <div>
+                <h3 class="func__title">Respuestas con su fuente</h3>
+                <p class="func__text">
+                  Cada respuesta indica el documento y la página o el artículo
+                  de donde sale. Toca la cita y ves el fragmento exacto.
+                </p>
+              </div>
+              <span class="func__arrow" aria-hidden="true">↗</span>
+            </li>
+
+            <li class="func" data-reveal data-delay="70">
+              <span class="func__number">02</span>
+              <div>
+                <h3 class="func__title">Reconoce cuando no sabe</h3>
+                <p class="func__text">
+                  Si la información no está en los documentos,
+                  te lo dice en lugar de inventar una respuesta.
+                </p>
+              </div>
+              <span class="func__arrow" aria-hidden="true">↗</span>
+            </li>
+
+            <li class="func" data-reveal data-delay="140">
+              <span class="func__number">03</span>
+              <div>
+                <h3 class="func__title">Pregunta como prefieras</h3>
+                <p class="func__text">
+                  Escribe, dicta por voz o sube la foto de un documento
+                  y pregunta sobre lo que aparece en ella.
+                </p>
+              </div>
+              <span class="func__arrow" aria-hidden="true">↗</span>
+            </li>
+
+            <li class="func" data-reveal data-delay="210">
+              <span class="func__number">04</span>
+              <div>
+                <h3 class="func__title">Entiende el seguimiento</h3>
+                <p class="func__text">
+                  Puedes repreguntar sin repetir el contexto.
+                  El asistente recuerda lo que hablaron en la conversación.
+                </p>
+              </div>
+              <span class="func__arrow" aria-hidden="true">↗</span>
+            </li>
+
+            <li class="func" data-reveal data-delay="280">
+              <span class="func__number">05</span>
+              <div>
+                <h3 class="func__title">Conversaciones guardadas</h3>
+                <p class="func__text">
+                  Tus consultas quedan en tu cuenta. Retómalas cuando vuelvas,
+                  cámbiales el nombre o bórralas.
+                </p>
+              </div>
+              <span class="func__arrow" aria-hidden="true">↗</span>
+            </li>
+
+            <li class="func" data-reveal data-delay="350">
+              <span class="func__number">06</span>
+              <div>
+                <h3 class="func__title">Datos recientes, si lo activas</h3>
+                <p class="func__text">
+                  La búsqueda en internet es opcional.
+                  Cuando la usas, los documentos siguen teniendo prioridad.
+                </p>
+              </div>
+              <span class="func__arrow" aria-hidden="true">↗</span>
+            </li>
+
+          </ul>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Cita destacada -->
+    <section class="quote-section" aria-label="Principio de la plataforma">
+
+      <div class="quote-section__image" data-parallax>
+        <img
+          src="https://images.unsplash.com/photo-1589216532372-1c2a367900d9?auto=format&fit=crop&w=1800&q=85"
+          alt="Columnas de arquitectura clásica"
+          loading="lazy"
+        >
+      </div>
+
+      <div class="quote-section__overlay"></div>
+
+      <div class="wrap quote-section__content" data-reveal>
+
+        <p class="eyebrow">EL VALOR ESTÁ EN LA FUENTE</p>
+
+        <blockquote>
+          Entender una respuesta también significa poder
+          <em>comprobarla.</em>
+        </blockquote>
+
+        <span class="quote-section__index">
+          02 / TRANSPARENCIA EN CADA CONSULTA
+        </span>
+
+      </div>
+
+    </section>
+
+    <!-- Ejemplo de consulta -->
+    <section class="sec sec--dark demo-section" id="ejemplo" aria-labelledby="h-ejemplo">
+
+      <div class="wrap demo">
+
+        <div class="demo__intro" data-reveal>
+
+          <p class="eyebrow">UNA RESPUESTA, CON SU CONTEXTO</p>
+
+          <h2 class="sec__title" id="h-ejemplo">
+            No solo respuestas. <em>También evidencia.</em>
+          </h2>
+
+          <p class="demo__lead">
+            La cita aparece dentro del texto. Al tocarla se abre
+            el fragmento del documento del que salió la información.
+          </p>
+
+          <p class="demo__note">
+            Ejemplo ilustrativo con uno de los documentos de la base.
+          </p>
+
+        </div>
+
+        <figure
+          class="chat-demo"
+          id="chat-demo"
+          data-reveal="card"
+          aria-label="Ejemplo de pregunta y respuesta"
+        >
+
+          <div class="chat-demo__top">
+            <span class="window-dots"><i></i><i></i><i></i></span>
+            <span>ASISTENTE JURÍDICO</span>
+            <span class="online-dot">● EN LÍNEA</span>
+          </div>
+
+          <p class="chat-demo__q">
+            ¿En cuántos días debe resolverse una petición ante una autoridad?
+          </p>
+
+          <div class="chat-demo__answer-label">
+            <span class="answer-mark">§</span> RESPUESTA
+          </div>
+
+          <div class="chat-demo__a">
+
+            <p>
+              Por regla general, toda petición debe resolverse dentro de
+              los quince (15) días siguientes a su recepción. Hay plazos
+              especiales: diez (10) días para las peticiones de documentos
+              e información y treinta (30) días para las consultas a las
+              autoridades
+
+              <span class="cite" id="demo-cite">
+                CPACA <span class="cite__page">Art. 14</span>
+              </span>.
+            </p>
+
+            <div class="frag" id="demo-frag">
+
+              <div class="frag__head">
+                <span>CPACA, Ley 1437 de 2011</span>
+                <span class="frag__page">Art. 14</span>
+              </div>
+
+              <p class="frag__text">
+                Artículo 14. Términos para resolver las distintas modalidades
+                de peticiones. Salvo norma legal especial y so pena de sanción
+                disciplinaria, toda petición deberá resolverse dentro de los
+                quince (15) días siguientes a su recepción.
+              </p>
+
+              <span class="frag__source">
+                FRAGMENTO DE REFERENCIA <span>↗</span>
+              </span>
+
+            </div>
+
+          </div>
+
+          <div class="chat-demo__footer">
+            <span>Respuesta generada a partir de documentos</span>
+            <span>●</span>
+          </div>
+
+        </figure>
+
+      </div>
+
+    </section>
+
+    <!-- Base documental -->
+    <section class="sec sec--light norms-section" id="normas" aria-labelledby="h-normas">
+
+      <div class="wrap norms-layout">
+
+        <div class="norms-intro" data-reveal>
+
+          <p class="eyebrow eyebrow--dark">BASE DOCUMENTAL</p>
+
+          <h2 class="sec__title" id="h-normas">
+            Normas que puedes <em>consultar.</em>
+          </h2>
+
+          <p>
+            Explora información normativa colombiana disponible
+            en la base de conocimiento.
+          </p>
+
+          <div class="norms-photo" data-reveal="image">
+
+            <img
+              src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1200&q=85"
+              alt="Estanterías de libros en una biblioteca"
+              loading="lazy"
+              onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=1200&q=85';"
+            >
+
+          </div>
+
+        </div>
+
+        <div class="norms-list-wrap" data-reveal>
+
+          <ul class="normas">
+
+            <li>
+              <span class="norma__name">Código Civil</span>
+              <span class="norma__ley">Ley 84 de 1873</span>
+            </li>
+
+            <li>
+              <span class="norma__name">Código General del Proceso</span>
+              <span class="norma__ley">Ley 1564 de 2012</span>
+            </li>
+
+            <li>
+              <span class="norma__name">CPACA</span>
+              <span class="norma__ley">Ley 1437 de 2011</span>
+            </li>
+
+            <li>
+              <span class="norma__name">Estatuto Tributario</span>
+              <span class="norma__ley">Decreto 624 de 1989</span>
+            </li>
+
+            <li>
+              <span class="norma__name">Estatuto del Consumidor</span>
+              <span class="norma__ley">Ley 1480 de 2011</span>
+            </li>
+
+            <li>
+              <span class="norma__name">Protección de datos personales</span>
+              <span class="norma__ley">Ley 1581 de 2012</span>
+            </li>
+
+            <li>
+              <span class="norma__name">Arrendamiento de vivienda urbana</span>
+              <span class="norma__ley">Ley 820 de 2003</span>
+            </li>
+
+          </ul>
+
+          <p class="normas__note">
+            Son extractos con fines didácticos. Verifica siempre
+            contra el texto oficial y vigente.
+          </p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Cierre -->
+    <section class="closing" id="cierre">
+
+      <div class="closing__image" data-parallax>
+        <img
+          src="https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&w=1800&q=85"
+          alt=""
+          loading="lazy"
+        >
+      </div>
+
+      <div class="closing__shade"></div>
+
+      <div class="wrap closing__content" data-reveal>
+
+        <p class="eyebrow">EMPIEZA A CONSULTAR</p>
+
+        <h2>Haz tu primera consulta.</h2>
+
+        <p>
+          Crea una cuenta para guardar tus conversaciones
+          y retomarlas cuando quieras.
+        </p>
+
+        <div class="hero__cta">
+
+          {% if usuario %}
+            <a class="btn btn--solid btn--lg" href="{{ url_for('chat') }}">
+              Ir al asistente <span aria-hidden="true">↗</span>
+            </a>
+          {% else %}
+            <a class="btn btn--solid btn--lg" href="{{ url_for('acceso', modo='registro') }}">
+              Crear cuenta gratis <span aria-hidden="true">↗</span>
+            </a>
+
+            <a class="btn btn--line btn--lg" href="{{ url_for('acceso') }}">
+              Ya tengo cuenta
+            </a>
+          {% endif %}
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="foot">
+
+    <div class="wrap foot__row">
+
+      <a class="brand foot__brand" href="#inicio">
+        <span class="brand__mark" aria-hidden="true">§</span>
+        <span class="brand__name">Normativa colombiana</span>
+      </a>
+
+      <p class="foot__note">
+        Información orientativa basada en extractos didácticos.
+        No sustituye la asesoría de un abogado.
+      </p>
+
+      <a class="foot__top" href="#inicio">VOLVER ARRIBA ↑</a>
+
+    </div>
+
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/landing.js') }}" defer></script>
+
+</body>
+</html>

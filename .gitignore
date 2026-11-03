@@ -7,3 +7,4 @@ chroma/
 fastembed_cache/
 interactions.jsonl
 .venv-eval/
+usuarios.db

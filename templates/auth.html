@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>{{ 'Crear cuenta' if modo == 'registro' else 'Iniciar sesión' }} · Normativa colombiana</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><rect width='28' height='28' rx='6' fill='black'/><text x='14' y='21' font-size='18' font-weight='700' text-anchor='middle' fill='white' font-family='Georgia,serif'>§</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Geist:wght@300..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body data-modo="{{ modo }}">
+
+  <main class="auth">
+
+    <!-- Panel oscuro: la balanza en equilibrio -->
+    <aside class="side" aria-hidden="true">
+      <a class="brand" href="{{ url_for('landing') }}" tabindex="-1">
+        <span class="brand__mark">§</span>
+        <span class="brand__name">Normativa colombiana</span>
+      </a>
+      <svg class="scales" viewBox="0 0 320 300">
+        <circle class="halo" cx="160" cy="150" r="140"/>
+        <line class="ln" x1="160" y1="270" x2="160" y2="70"/>
+        <path class="ln" d="M130 270 L190 270 M142 270 Q160 250 178 270"/>
+        <circle class="dot" cx="160" cy="62" r="7"/>
+        <g class="beam">
+          <line class="ln ln--beam" x1="48" y1="86" x2="272" y2="86"/>
+          <circle class="dot" cx="48" cy="86" r="4"/>
+          <circle class="dot" cx="272" cy="86" r="4"/>
+          <g class="pan pan--l">
+            <path class="ln ln--dim" d="M48 86 L16 176 M48 86 L80 176"/>
+            <path class="bowl" d="M10 176 Q48 218 86 176 Z"/>
+          </g>
+          <g class="pan pan--r">
+            <path class="ln ln--dim" d="M272 86 L240 176 M272 86 L304 176"/>
+            <path class="bowl" d="M234 176 Q272 218 310 176 Z"/>
+          </g>
+        </g>
+      </svg>
+      <p class="side__text">Tus consultas quedan guardadas en tu cuenta, para retomarlas cuando quieras.</p>
+    </aside>
+
+    <section class="panel" aria-labelledby="titulo">
+      <a class="back" href="{{ url_for('landing') }}">Volver al inicio</a>
+
+      <div class="card">
+        <h1 class="title" id="titulo">Iniciar sesión</h1>
+
+        <div class="tabs" role="tablist" aria-label="Acceso">
+          <button type="button" role="tab" class="tab" id="tab-login" data-modo="login" aria-selected="true" aria-controls="form">Ya tengo cuenta</button>
+          <button type="button" role="tab" class="tab" id="tab-registro" data-modo="registro" aria-selected="false" aria-controls="form">Crear cuenta</button>
+        </div>
+
+        <form id="form" class="form" novalidate role="tabpanel">
+          <div class="field" id="campo-nombre" hidden>
+            <label for="nombre">Nombre</label>
+            <input id="nombre" name="nombre" type="text" autocomplete="name" maxlength="60">
+          </div>
+          <div class="field">
+            <label for="correo">Correo</label>
+            <input id="correo" name="correo" type="email" autocomplete="email" inputmode="email" required>
+          </div>
+          <div class="field">
+            <label for="password">Contraseña</label>
+            <div class="pass">
+              <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128" aria-describedby="ayuda-pass">
+              <button type="button" class="pass__toggle" id="ver-pass" aria-pressed="false">Mostrar</button>
+            </div>
+            <p class="hint" id="ayuda-pass" hidden>Mínimo 8 caracteres.</p>
+          </div>
+
+          <p class="error" id="error" role="alert" hidden></p>
+
+          <button type="submit" class="submit" id="enviar">Iniciar sesión</button>
+        </form>
+
+        <p class="switch" id="cambio"></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</body>
+</html>

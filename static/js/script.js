@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────────────────────
 // Interfaz del asistente RAG (sin frameworks).
-// Habla con el backend Flask: /api/status, /api/indexed, /api/ask y /api/transcribe.
+// Habla con el backend Flask: /api/status, /api/indexed, /api/ask, /api/transcribe,
+// /api/conversaciones (lista, abrir, renombrar, borrar) y /api/auth (sesión y cuenta).
 // ──────────────────────────────────────────────────────────────
 
 const apiStatusEl = document.getElementById("api-status");
@@ -32,14 +33,30 @@ const attachmentName = document.getElementById("attachment-name");
 const btnRemoveImage = document.getElementById("btn-remove-image");
 const btnMic = document.getElementById("btn-mic");
 
-const MAX_HISTORY = 6; // mensajes (3 turnos) enviados al backend
+const chatTitleEl = document.getElementById("chat-title");
+const convListEl = document.getElementById("conv-list");
+const convEmptyEl = document.getElementById("conv-empty");
+const btnLogout = document.getElementById("btn-logout");
+const btnDeleteAccount = document.getElementById("btn-delete-account");
+const dlgConv = document.getElementById("dlg-conv");
+const dlgConvText = document.getElementById("dlg-conv-text");
+const dlgConvOk = document.getElementById("dlg-conv-ok");
+const dlgCuenta = document.getElementById("dlg-cuenta");
+const formCuenta = document.getElementById("form-cuenta");
+const dlgCuentaPass = document.getElementById("dlg-cuenta-pass");
+const dlgCuentaError = document.getElementById("dlg-cuenta-error");
+const dlgCuentaOk = document.getElementById("dlg-cuenta-ok");
+
+const TITULO_POR_DEFECTO = "Asistente Legal";
+
 const MAX_LADO_IMAGEN = 1600; // px: la imagen se reduce antes de enviarla
 const MAX_SEGUNDOS_AUDIO = 60;
 const PUEDE_GRABAR = !!(navigator.mediaDevices && window.MediaRecorder);
 
 let vectorStoreListo = false;
 let consultando = false;
-let historial = []; // [{role: "user"|"assistant", content: "..."}]
+let conversacionId = null; // conversación abierta (null = todavía no se guardó nada)
+let conversaciones = []; // [{id, titulo, creado, actualizado}] del usuario
 let imagenAdjunta = null; // data URL (JPEG) lista para enviar
 let grabadora = null; // MediaRecorder activo
 let transcribiendo = false;
@@ -47,7 +64,25 @@ let transcribiendo = false;
 // Copia del estado vacío para restaurarlo con "Nueva conversación"
 const emptyStateTemplate = document.getElementById("empty-state").cloneNode(true);
 
-// Nombres legibles de los documentos del corpus (si llega otro PDF se muestra su nombre de archivo)
+// fetch que lleva al inicio de sesión cuando la sesión terminó (401)
+async function api(url, opciones) {
+  const res = await fetch(url, opciones);
+  if (res.status === 401) {
+    location.href = "/acceso";
+    throw new Error("Tu sesión terminó.");
+  }
+  return res;
+}
+
+function apiJson(url, metodo, cuerpo) {
+  return api(url, {
+    method: metodo,
+    headers: { "Content-Type": "application/json" },
+    body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+  });
+}
+
+// Nombres legibles de los documentos del corpus (si llega otro archivo se muestra su nombre)
 const DOCUMENTOS = {
   "cpaca_ley_1437_2011.pdf": { titulo: "CPACA, Ley 1437 de 2011", corto: "CPACA" },
   "ley_1480_2011.pdf": { titulo: "Estatuto del Consumidor, Ley 1480 de 2011", corto: "Ley 1480" },
@@ -61,7 +96,7 @@ const DOCUMENTOS = {
 function infoDocumento(archivo) {
   const d = DOCUMENTOS[archivo];
   if (d) return d;
-  const base = archivo.replace(/\.pdf$/i, "").replace(/_/g, " ");
+  const base = archivo.replace(/\.(pdf|docx|tex)$/i, "").replace(/_/g, " ");
   return { titulo: base, corto: base };
 }
 
@@ -70,7 +105,7 @@ function infoDocumento(archivo) {
 async function cargarEstado() {
   let data;
   try {
-    const res = await fetch("/api/status");
+    const res = await api("/api/status");
     data = await res.json();
   } catch (e) {
     setTimeout(cargarEstado, 3000);
@@ -85,7 +120,7 @@ async function cargarEstado() {
     apiStatusEl.className = "status status--error";
   }
 
-  renderPdfList(data.pdfs);
+  renderPdfList(data.documentos);
   configurarWeb(data.web_ok);
 
   if (data.log && data.log.length) {
@@ -118,7 +153,7 @@ function renderPdfList(pdfs) {
   if (!pdfs.length) {
     const li = document.createElement("li");
     li.className = "pdf-list__empty";
-    li.textContent = "No hay PDFs en la carpeta pdfs/";
+    li.textContent = "No hay documentos en la carpeta pdfs/";
     pdfListEl.appendChild(li);
     return;
   }
@@ -279,7 +314,7 @@ async function transcribir(blob) {
   const datos = new FormData();
   datos.append("audio", blob, `grabacion.${extension}`);
   try {
-    const res = await fetch("/api/transcribe", { method: "POST", body: datos });
+    const res = await api("/api/transcribe", { method: "POST", body: datos });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "No se pudo transcribir el audio.");
     const actual = preguntaInput.value.trim();
@@ -340,7 +375,7 @@ btnIndexed.addEventListener("click", async () => {
     btnIndexed.textContent = "Consultando…";
     indexedPanel.replaceChildren();
     try {
-      const res = await fetch("/api/indexed");
+      const res = await api("/api/indexed");
       const data = await res.json();
 
       if (!res.ok) {
@@ -412,8 +447,23 @@ function escapeHtml(s) {
     .replace(/'/g, "&#39;");
 }
 
-// Cita con el formato pedido en el prompt: (Fuente: Documento.pdf, Pág. N)
-const CITA_RE = /\(\s*Fuente:\s*([^,()]+?\.pdf)\s*[,—–-]\s*P[áa]g(?:ina)?\.?\s*(\d+)\s*\)/gi;
+// Cita con el formato pedido en el prompt: (Fuente: Documento.pdf, Pág. N) o (Fuente: Documento.docx, Art. N)
+const CITA_RE = /\(\s*Fuente:\s*([^,()]+?\.(?:pdf|docx|tex))\s*[,—–-]\s*([^()]{1,60}?)\s*\)/gi;
+
+// Ubicación normalizada para comparar la cita con el fragmento ("Pág. 3" = "pagina 3" = "p3")
+function normUbic(u) {
+  return String(u)
+    .toLowerCase()
+    .replace(/p[áa]g(?:ina)?\.?\s*/g, "p")
+    .replace(/art(?:[íi]culo)?\.?\s*/g, "a")
+    .replace(/\s+/g, "");
+}
+
+// Texto corto de la ubicación en la píldora: "Pág. 3" -> "p. 3"; "Art. 5" queda igual
+function etiquetaUbic(u) {
+  const m = String(u).match(/^p[áa]g(?:ina)?\.?\s*(\d+)$/i);
+  return m ? `p. ${m[1]}` : String(u);
+}
 
 // Cita de la búsqueda web: (Web: https://...)
 const WEB_RE = /\(\s*Web:\s*(https?:\/\/[^\s()<>"]+?)\s*\)/gi;
@@ -427,11 +477,12 @@ function formatoInline(texto) {
   return texto
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*(?!\s)([^*]+?)\*(?!\*)/g, "$1<em>$2</em>")
-    .replace(CITA_RE, (_, archivo, pagina) => {
+    .replace(CITA_RE, (_, archivo, ubicacion) => {
       const corto = escapeHtml(infoDocumento(archivo.trim()).corto);
-      return `<button type="button" class="cite" data-fuente="${archivo.trim()}" data-pagina="${pagina}" ` +
-        `title="Ver fragmento de ${archivo.trim()}, página ${pagina}">` +
-        `${ICONO_DOC}${corto} <span class="cite__page">p. ${pagina}</span></button>`;
+      const ubic = ubicacion.trim();
+      return `<button type="button" class="cite" data-fuente="${archivo.trim()}" data-ubicacion="${normUbic(ubic)}" ` +
+        `title="Ver fragmento de ${archivo.trim()}, ${ubic}">` +
+        `${ICONO_DOC}${corto} <span class="cite__page">${etiquetaUbic(ubic)}</span></button>`;
     })
     .replace(WEB_RE, (_, url) => {
       let host = url;
@@ -502,8 +553,8 @@ function renderFuentes(fuentes, citadas, fuentesWeb = []) {
     const frag = document.createElement("div");
     frag.className = "fragment";
     frag.dataset.fuente = f.fuente;
-    frag.dataset.pagina = String(f.pagina);
-    const citada = citadas.has(`${f.fuente}|${f.pagina}`);
+    frag.dataset.ubicacion = normUbic(f.ubicacion);
+    const citada = citadas.has(`${f.fuente}|${normUbic(f.ubicacion)}`);
     if (citada) frag.classList.add("fragment--cited");
 
     // Cabecera tipo libro mayor: documento a la izquierda, página a la derecha
@@ -522,7 +573,7 @@ function renderFuentes(fuentes, citadas, fuentesWeb = []) {
     }
     const pag = document.createElement("span");
     pag.className = "fragment__page";
-    pag.textContent = `Pág. ${f.pagina}`;
+    pag.textContent = f.ubicacion;
     head.appendChild(pag);
 
     const texto = document.createElement("p");
@@ -604,7 +655,7 @@ messagesEl.addEventListener("click", (e) => {
   if (!det) return;
   det.open = true;
   const frags = [...det.querySelectorAll(".fragment")].filter(
-    (f) => f.dataset.fuente === cite.dataset.fuente && f.dataset.pagina === cite.dataset.pagina
+    (f) => f.dataset.fuente === cite.dataset.fuente && f.dataset.ubicacion === cite.dataset.ubicacion
   );
   if (!frags.length) {
     det.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -619,14 +670,7 @@ messagesEl.addEventListener("click", (e) => {
   });
 });
 
-btnReset.addEventListener("click", () => {
-  historial = [];
-  quitarImagen();
-  messagesEl.replaceChildren(emptyStateTemplate.cloneNode(true));
-  activarEstadoVacio();
-  cerrarPanel();
-  if (!preguntaInput.disabled) preguntaInput.focus();
-});
+btnReset.addEventListener("click", nuevaConversacion);
 
 // Campo de texto: crece con el contenido, Enter envía y Shift+Enter agrega una línea
 function ajustarAltura() {
@@ -646,6 +690,55 @@ chatForm.addEventListener("submit", (e) => {
   e.preventDefault();
   enviarPregunta(preguntaInput.value.trim());
 });
+
+// Completa un mensaje del asistente con su respuesta, herramientas, pie y fuentes.
+// Se usa igual para una respuesta recién llegada y para una conversación guardada.
+function completarRespuesta(msg, body, data, pregunta) {
+  body.innerHTML = renderRespuesta(data.respuesta);
+  if (data.sin_respuesta) msg.classList.add("msg--abstain");
+
+  if (data.herramientas && data.herramientas.length) {
+    msg.appendChild(renderHerramientas(data.herramientas));
+  } else if (data.pregunta_independiente && data.pregunta_independiente !== pregunta) {
+    const re = document.createElement("p");
+    re.className = "msg__rewrite";
+    re.append("Interpretada como: ");
+    const em = document.createElement("em");
+    em.textContent = data.pregunta_independiente;
+    re.appendChild(em);
+    msg.appendChild(re);
+  }
+
+  const footer = document.createElement("div");
+  footer.className = "msg__footer";
+
+  const meta = document.createElement("span");
+  meta.className = "msg__meta";
+  const fuentesWeb = data.fuentes_web || [];
+  const usoHerramientas = (data.herramientas || []).length > 0 || data.n_recuperados > 0;
+  const partes = [`~${data.tokens_contexto_aprox} tokens de contexto`, `${data.n_recuperados} fragmentos`];
+  if (fuentesWeb.length) partes.push(`${fuentesWeb.length} resultados web`);
+  meta.textContent = data.sin_respuesta
+    ? "Sin información en la base de conocimientos"
+    : usoHerramientas ? partes.join(" · ") : "Respondida sin consultar documentos";
+  footer.appendChild(meta);
+  footer.appendChild(botonCopiar(data.respuesta));
+
+  if ((data.fuentes && data.fuentes.length) || fuentesWeb.length) {
+    const citadas = new Set(
+      [...body.querySelectorAll(".cite:not(.cite--web)")].map((c) => `${c.dataset.fuente}|${c.dataset.ubicacion}`)
+    );
+    footer.appendChild(renderFuentes(data.fuentes || [], citadas, fuentesWeb));
+  }
+  msg.appendChild(footer);
+
+  if (data.aviso) {
+    const aviso = document.createElement("p");
+    aviso.className = "msg__notice";
+    aviso.textContent = data.aviso;
+    msg.appendChild(aviso);
+  }
+}
 
 async function enviarPregunta(pregunta) {
   const imagen = imagenAdjunta;
@@ -675,16 +768,13 @@ async function enviarPregunta(pregunta) {
   body.innerHTML = '<span class="typing" role="status" aria-label="Consultando…"><span></span><span></span><span></span></span>';
 
   try {
-    const res = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        pregunta,
-        k: Number(kSlider.value),
-        historial: historial.slice(-MAX_HISTORY),
-        web: webToggle.checked,
-        imagen,
-      }),
+    // El historial lo arma el servidor a partir de la conversación guardada
+    const res = await apiJson("/api/ask", "POST", {
+      pregunta,
+      k: Number(kSlider.value),
+      web: webToggle.checked,
+      imagen,
+      conversacion_id: conversacionId,
     });
     const data = await res.json();
     pensando.classList.remove("msg--loading");
@@ -692,52 +782,15 @@ async function enviarPregunta(pregunta) {
     if (!res.ok) {
       pensando.classList.add("msg--error");
       body.textContent = data.error || "Ocurrió un error.";
+      if (res.status === 404 && conversacionId) {
+        // La conversación ya no existe (p. ej. se borró desde otra pestaña)
+        conversacionId = null;
+        sincronizarUrl();
+        cargarConversaciones();
+      }
     } else {
-      body.innerHTML = renderRespuesta(data.respuesta);
-      if (data.sin_respuesta) pensando.classList.add("msg--abstain");
-
-      // Guardar el turno en el historial (solo si salió bien). Si hubo imagen,
-      // se guarda su descripción para que las preguntas de seguimiento la entiendan.
-      const turno = data.descripcion_imagen
-        ? `[Imagen adjunta: ${data.descripcion_imagen}]\n${pregunta}`
-        : pregunta;
-      historial.push({ role: "user", content: turno });
-      historial.push({ role: "assistant", content: data.respuesta });
-
-      if (data.herramientas && data.herramientas.length) {
-        pensando.appendChild(renderHerramientas(data.herramientas));
-      } else if (data.pregunta_independiente && data.pregunta_independiente !== pregunta) {
-        const re = document.createElement("p");
-        re.className = "msg__rewrite";
-        re.append("Interpretada como: ");
-        const em = document.createElement("em");
-        em.textContent = data.pregunta_independiente;
-        re.appendChild(em);
-        pensando.appendChild(re);
-      }
-
-      const footer = document.createElement("div");
-      footer.className = "msg__footer";
-
-      const meta = document.createElement("span");
-      meta.className = "msg__meta";
-      const fuentesWeb = data.fuentes_web || [];
-      const usoHerramientas = (data.herramientas || []).length > 0 || data.n_recuperados > 0;
-      const partes = [`~${data.tokens_contexto_aprox} tokens de contexto`, `${data.n_recuperados} fragmentos`];
-      if (fuentesWeb.length) partes.push(`${fuentesWeb.length} resultados web`);
-      meta.textContent = data.sin_respuesta
-        ? "Sin información en la base de conocimientos"
-        : usoHerramientas ? partes.join(" · ") : "Respondida sin consultar documentos";
-      footer.appendChild(meta);
-      footer.appendChild(botonCopiar(data.respuesta));
-
-      if ((data.fuentes && data.fuentes.length) || fuentesWeb.length) {
-        const citadas = new Set(
-          [...body.querySelectorAll(".cite:not(.cite--web)")].map((c) => `${c.dataset.fuente}|${c.dataset.pagina}`)
-        );
-        footer.appendChild(renderFuentes(data.fuentes || [], citadas, fuentesWeb));
-      }
-      pensando.appendChild(footer);
+      completarRespuesta(pensando, body, data, pregunta);
+      if (data.conversacion && data.conversacion.id) registrarTurnoEnLista(data.conversacion);
     }
   } catch (err) {
     pensando.classList.remove("msg--loading");
@@ -751,5 +804,290 @@ async function enviarPregunta(pregunta) {
   }
 }
 
+// ───────────────── Conversaciones guardadas ─────────────────
+
+const ICONO_EDITAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
+const ICONO_BORRAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>';
+
+function fechaCorta(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const hoy = new Date();
+  const ayer = new Date();
+  ayer.setDate(hoy.getDate() - 1);
+  if (d.toDateString() === hoy.toDateString()) {
+    return `Hoy, ${d.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })}`;
+  }
+  if (d.toDateString() === ayer.toDateString()) return "Ayer";
+  const opciones = d.getFullYear() === hoy.getFullYear()
+    ? { day: "numeric", month: "short" }
+    : { day: "numeric", month: "short", year: "numeric" };
+  return d.toLocaleDateString("es-CO", opciones);
+}
+
+function sincronizarUrl() {
+  const url = conversacionId ? `/chat?c=${encodeURIComponent(conversacionId)}` : "/chat";
+  try { history.replaceState(null, "", url); } catch (e) { /* sin historial */ }
+}
+
+function botonConv(clase, etiqueta, icono, alClic) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = `conv__btn ${clase}`;
+  b.setAttribute("aria-label", etiqueta);
+  b.title = etiqueta;
+  b.innerHTML = icono;
+  b.addEventListener("click", (e) => { e.stopPropagation(); alClic(); });
+  return b;
+}
+
+function mostrarErrorLista(texto) {
+  convListEl.querySelectorAll(".conv-list__error").forEach((n) => n.remove());
+  const li = document.createElement("li");
+  li.className = "conv-list__error";
+  li.setAttribute("role", "alert");
+  li.textContent = texto;
+  convListEl.prepend(li);
+  setTimeout(() => li.remove(), 5000);
+}
+
+function renderConversaciones() {
+  convListEl.replaceChildren();
+  convEmptyEl.hidden = conversaciones.length > 0;
+  conversaciones.forEach((conv) => {
+    const li = document.createElement("li");
+    li.className = "conv";
+    const activa = conv.id === conversacionId;
+    if (activa) li.classList.add("is-active");
+
+    const abrir = document.createElement("button");
+    abrir.type = "button";
+    abrir.className = "conv__open";
+    abrir.title = conv.titulo;
+    if (activa) abrir.setAttribute("aria-current", "true");
+    const titulo = document.createElement("span");
+    titulo.className = "conv__title";
+    titulo.textContent = conv.titulo;
+    const fecha = document.createElement("span");
+    fecha.className = "conv__date";
+    fecha.textContent = fechaCorta(conv.actualizado);
+    abrir.append(titulo, fecha);
+    abrir.addEventListener("click", () => abrirConversacion(conv.id));
+
+    const acciones = document.createElement("div");
+    acciones.className = "conv__actions";
+    acciones.append(
+      botonConv("", `Cambiar el nombre de «${conv.titulo}»`, ICONO_EDITAR, () => editarTitulo(li, conv)),
+      botonConv("conv__btn--danger", `Borrar «${conv.titulo}»`, ICONO_BORRAR, () => pedirBorrado(conv))
+    );
+
+    li.append(abrir, acciones);
+    convListEl.appendChild(li);
+  });
+}
+
+async function cargarConversaciones() {
+  try {
+    const res = await api("/api/conversaciones");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    conversaciones = data.conversaciones;
+  } catch (e) {
+    conversaciones = [];
+    renderConversaciones();
+    mostrarErrorLista("No se pudieron cargar tus conversaciones.");
+    return;
+  }
+  renderConversaciones();
+}
+
+// Tras una respuesta: la conversación sube al inicio de la lista y queda abierta
+function registrarTurnoEnLista(conv) {
+  conversacionId = conv.id;
+  const ahora = new Date().toISOString();
+  const existente = conversaciones.find((c) => c.id === conv.id);
+  if (existente) {
+    existente.actualizado = ahora;
+    conversaciones = [existente, ...conversaciones.filter((c) => c.id !== conv.id)];
+  } else {
+    conversaciones.unshift({ id: conv.id, titulo: conv.titulo, creado: ahora, actualizado: ahora });
+  }
+  if (conv.titulo) chatTitleEl.textContent = conv.titulo;
+  renderConversaciones();
+  sincronizarUrl();
+}
+
+function pintarTurno(turno) {
+  const extra = turno.extra || {};
+  const usuario = agregarMensaje(turno.pregunta, "user");
+  if (extra.tiene_imagen) {
+    const nota = document.createElement("p");
+    nota.className = "msg__imgnote";
+    nota.textContent = "Incluía una imagen";
+    usuario.insertBefore(nota, usuario.firstChild);
+  }
+  const msg = agregarMensaje("", "assistant");
+  const body = msg.querySelector(".msg__body");
+  completarRespuesta(msg, body, { ...extra, respuesta: turno.respuesta }, turno.pregunta);
+}
+
+async function abrirConversacion(id) {
+  if (consultando) return;
+  try {
+    const res = await api(`/api/conversaciones/${encodeURIComponent(id)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "No se pudo abrir la conversación.");
+    conversacionId = data.id;
+    chatTitleEl.textContent = data.titulo;
+    quitarImagen();
+    messagesEl.replaceChildren();
+    data.turnos.forEach(pintarTurno);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    renderConversaciones();
+    sincronizarUrl();
+    cerrarPanel();
+  } catch (e) {
+    mostrarErrorLista(e.message || "No se pudo abrir la conversación.");
+    if (conversacionId === null) nuevaConversacion();
+  }
+}
+
+function nuevaConversacion() {
+  if (consultando) return;
+  conversacionId = null;
+  quitarImagen();
+  chatTitleEl.textContent = TITULO_POR_DEFECTO;
+  messagesEl.replaceChildren(emptyStateTemplate.cloneNode(true));
+  activarEstadoVacio();
+  renderConversaciones();
+  sincronizarUrl();
+  cerrarPanel();
+  if (!preguntaInput.disabled) preguntaInput.focus();
+}
+
+// Renombrar: el título se convierte en un campo; Enter guarda, Esc cancela
+function editarTitulo(li, conv) {
+  const abrir = li.querySelector(".conv__open");
+  const acciones = li.querySelector(".conv__actions");
+  const input = document.createElement("input");
+  input.className = "conv__rename";
+  input.value = conv.titulo;
+  input.maxLength = 80;
+  input.setAttribute("aria-label", "Nuevo nombre de la conversación");
+  abrir.hidden = true;
+  acciones.hidden = true;
+  li.appendChild(input);
+  input.focus();
+  input.select();
+
+  let cerrado = false;
+  async function terminar(guardar) {
+    if (cerrado) return;
+    cerrado = true;
+    const nuevo = input.value.trim();
+    if (guardar && nuevo && nuevo !== conv.titulo) {
+      try {
+        const res = await apiJson(`/api/conversaciones/${encodeURIComponent(conv.id)}`, "PATCH", { titulo: nuevo });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "No se pudo cambiar el nombre.");
+        conv.titulo = data.titulo;
+        if (conv.id === conversacionId) chatTitleEl.textContent = data.titulo;
+      } catch (e) {
+        renderConversaciones();
+        mostrarErrorLista(e.message);
+        return;
+      }
+    }
+    renderConversaciones();
+  }
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); terminar(true); }
+    else if (e.key === "Escape") { e.preventDefault(); terminar(false); }
+  });
+  input.addEventListener("blur", () => terminar(true));
+}
+
+// Borrar una conversación (con confirmación)
+let convPorBorrar = null;
+
+function pedirBorrado(conv) {
+  convPorBorrar = conv;
+  dlgConvText.textContent = `Se borrará «${conv.titulo}» con todas sus preguntas y respuestas. No se puede deshacer.`;
+  dlgConvOk.disabled = false;
+  dlgConv.showModal();
+}
+
+dlgConvOk.addEventListener("click", async () => {
+  const conv = convPorBorrar;
+  if (!conv) return;
+  dlgConvOk.disabled = true;
+  try {
+    const res = await apiJson(`/api/conversaciones/${encodeURIComponent(conv.id)}`, "DELETE");
+    if (!res.ok && res.status !== 404) throw new Error();
+    conversaciones = conversaciones.filter((c) => c.id !== conv.id);
+    const eraLaAbierta = conv.id === conversacionId;
+    dlgConv.close();
+    if (eraLaAbierta) nuevaConversacion();
+    else renderConversaciones();
+  } catch (e) {
+    dlgConv.close();
+    mostrarErrorLista("No se pudo borrar la conversación. Inténtalo de nuevo.");
+  }
+  convPorBorrar = null;
+});
+
+// ───────────────── Cuenta ─────────────────
+
+document.querySelectorAll("dialog [data-cerrar]").forEach((b) => {
+  b.addEventListener("click", () => b.closest("dialog").close());
+});
+
+btnLogout.addEventListener("click", async () => {
+  btnLogout.disabled = true;
+  try { await apiJson("/api/auth/logout", "POST"); } catch (e) { /* la sesión ya no existía */ }
+  location.href = "/";
+});
+
+btnDeleteAccount.addEventListener("click", () => {
+  dlgCuentaPass.value = "";
+  dlgCuentaError.hidden = true;
+  dlgCuentaOk.disabled = false;
+  dlgCuenta.showModal();
+  dlgCuentaPass.focus();
+});
+
+async function confirmarBorrarCuenta() {
+  if (!dlgCuentaPass.value) {
+    dlgCuentaError.textContent = "Escribe tu contraseña para confirmar.";
+    dlgCuentaError.hidden = false;
+    return;
+  }
+  dlgCuentaOk.disabled = true;
+  dlgCuentaError.hidden = true;
+  try {
+    const res = await apiJson("/api/auth/cuenta", "DELETE", { password: dlgCuentaPass.value });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "No se pudo eliminar la cuenta.");
+    location.href = "/";
+  } catch (e) {
+    dlgCuentaError.textContent = e.message;
+    dlgCuentaError.hidden = false;
+    dlgCuentaOk.disabled = false;
+  }
+}
+
+dlgCuentaOk.addEventListener("click", confirmarBorrarCuenta);
+formCuenta.addEventListener("submit", (e) => {
+  e.preventDefault(); // Enter en el campo de contraseña confirma; no cierra el diálogo
+  confirmarBorrarCuenta();
+});
+dlgCuenta.addEventListener("close", () => { dlgCuentaPass.value = ""; });
+
+// ───────────────── Arranque ─────────────────
+
 activarEstadoVacio();
 cargarEstado();
+cargarConversaciones().then(() => {
+  const id = new URLSearchParams(location.search).get("c");
+  if (id) abrirConversacion(id);
+});

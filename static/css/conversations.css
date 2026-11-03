@@ -1,0 +1,175 @@
+/* ──────────────────────────────────────────────────────────────
+   Chat con cuenta: lista de conversaciones, bloque de usuario y
+   diálogos de confirmación. Usa las variables de style.css.
+   ────────────────────────────────────────────────────────────── */
+
+a.app-id { color: inherit; text-decoration: none; border-radius: 12px; }
+
+/* ───────── Lista de conversaciones ───────── */
+
+.conv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+.conv-list:empty { display: none; }
+
+.conv {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 12px;
+  transition: background-color var(--t-fast) var(--spring);
+}
+.conv:hover, .conv:focus-within { background: var(--chip); }
+.conv.is-active { background: var(--accent-soft); }
+
+.conv__open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+}
+.conv__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.conv.is-active .conv__title { color: var(--accent); }
+.conv__date { font-size: 11.5px; color: var(--muted); }
+
+.conv__actions {
+  display: flex;
+  gap: 0;
+  padding-right: 4px;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--spring);
+}
+.conv:hover .conv__actions,
+.conv:focus-within .conv__actions { opacity: 1; }
+@media (hover: none) { .conv__actions { opacity: 1; } }
+
+.conv__btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  transition: background-color var(--t-fast) var(--spring), color var(--t-fast) var(--spring);
+}
+.conv__btn:hover { background: var(--hairline-strong); color: var(--text); }
+.conv__btn--danger:hover { background: var(--negative-soft); color: var(--negative); }
+.conv__btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.conv__rename {
+  flex: 1;
+  min-width: 0;
+  margin: 4px 6px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--core);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  font-size: 13px;
+  outline: none;
+}
+
+.conv-list__error { padding: 10px; font-size: 12px; color: var(--negative); }
+
+/* ───────── Cuenta ───────── */
+
+.account { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+.account__name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.account__mail { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.account__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.link-btn--danger { color: var(--negative); background: var(--negative-soft); }
+.link-btn--danger:hover { background: var(--negative-soft); filter: brightness(0.96); }
+
+/* ───────── Avisos dentro del chat ───────── */
+
+.msg__notice {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--negative);
+}
+
+.msg--user .msg__imgnote {
+  margin-bottom: 4px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* ───────── Diálogos ───────── */
+
+.dlg {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-core);
+  background: var(--core);
+  color: var(--text);
+  box-shadow: var(--shadow-float), 0 0 0 1px var(--hairline-strong);
+}
+.dlg::backdrop { background: rgba(0, 0, 0, 0.45); }
+.dlg[open] { animation: dlg-in var(--t-fast) var(--spring); }
+@keyframes dlg-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+
+.dlg__box { display: flex; flex-direction: column; gap: 12px; padding: 22px; }
+.dlg__title { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+.dlg__text { font-size: 14px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
+.dlg__label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.dlg__input {
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  font-size: 15px;
+}
+.dlg__input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.dlg__error { font-size: 13px; color: var(--negative); }
+.dlg__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.dlg__btn {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--chip);
+  font-size: 14px;
+  font-weight: 500;
+  transition: transform var(--t-fast) var(--spring), filter var(--t-fast) var(--spring);
+}
+.dlg__btn:active { transform: scale(0.97); }
+.dlg__btn--danger { background: var(--negative); color: #fff; }
+.dlg__btn:disabled { opacity: 0.6; cursor: progress; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dlg[open] { animation: none; }
+}
