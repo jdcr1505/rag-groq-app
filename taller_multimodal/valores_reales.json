@@ -1,0 +1,29 @@
+{
+  "01_derecho_peticion.jpg": {
+    "tipo_documento": "derecho de petición",
+    "emisor": "María Fernanda Rojas Pérez",
+    "destinatario": "Alcaldía Distrital de Villa Serena (Secretaría de Movilidad)",
+    "fecha": "2026-11-18",
+    "numero_referencia": "2026-ER-004521",
+    "valor_cop": null,
+    "norma_citada": "Ley 1755 de 2015"
+  },
+  "02_factura_compra.jpg": {
+    "tipo_documento": "factura electrónica de venta",
+    "emisor": "Electrohogar del Caribe S.A.S.",
+    "destinatario": "Juan Camilo Ortega Díaz",
+    "fecha": "2026-10-28",
+    "numero_referencia": "FE-10234",
+    "valor_cop": 2349900,
+    "norma_citada": "Ley 1480 de 2011"
+  },
+  "05_emplazamiento_declarar.jpg": {
+    "tipo_documento": "emplazamiento para declarar",
+    "emisor": "Dirección Seccional de Impuestos de Villa Serena",
+    "destinatario": "Distribuidora La Esperanza S.A.S.",
+    "fecha": "2026-09-15",
+    "numero_referencia": "102382026000457",
+    "valor_cop": 22248000,
+    "norma_citada": "Estatuto Tributario, artículo 642"
+  }
+}

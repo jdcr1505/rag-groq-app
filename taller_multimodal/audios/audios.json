@@ -1,0 +1,26 @@
+[
+  {
+    "archivo": "a1_integrante1.m4a",
+    "hablante": "Integrante 1",
+    "ruido": false,
+    "lo_que_se_dijo": "¿En cuántos días hábiles debe una entidad pública responder un derecho de petición de documentos según el artículo catorce del CPACA?"
+  },
+  {
+    "archivo": "a2_integrante2.m4a",
+    "hablante": "Integrante 2",
+    "ruido": false,
+    "lo_que_se_dijo": "Compré un televisor por internet hace tres días. ¿Puedo ejercer el derecho de retracto según la Ley 1480 de 2011 y en qué plazo me deben devolver el dinero?"
+  },
+  {
+    "archivo": "a3_integrante1_ruido.m4a",
+    "hablante": "Integrante 1",
+    "ruido": true,
+    "lo_que_se_dijo": "¿Qué sanción por extemporaneidad establece el Estatuto Tributario si presento la declaración de renta después del vencimiento?"
+  },
+  {
+    "archivo": "a4_integrante2.m4a",
+    "hablante": "Integrante 2",
+    "ruido": false,
+    "lo_que_se_dijo": "Según la Ley 820 de 2003, ¿cuánto puede aumentar el canon de arrendamiento de vivienda urbana cada año y con cuánta anticipación debo avisar si quiero terminar el contrato?"
+  }
+]

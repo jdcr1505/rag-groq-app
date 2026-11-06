@@ -10,6 +10,8 @@ Modos:
   python evaluate_ragas.py --tag k4 --k 4
   python evaluate_ragas.py --compare base prompt2          # tabla + gráfico
   python evaluate_ragas.py --from-log --last 30            # uso real (interactions.jsonl)
+  python evaluate_ragas.py --tag agente --pipeline agente  # Avance 3: mismo dataset sobre el agente
+  python evaluate_ragas.py --compare formatos agente       # pipeline fijo (Avance 2) vs agente
 
 Cada variante de chunking usa su propia colección de Chroma (eval_c{size}_o{overlap}),
 sin tocar el índice de producción. Env opcional: JUDGE_MODEL.
@@ -122,14 +124,29 @@ def run_eval(args):
             registros = json.load(f)
         print(f"Reutilizando generación guardada: {gen_path}")
     else:
+        from evaluate_agent import ContadorLLM
+        contador = ContadorLLM()
+        llm.callbacks = [contador]  # cuenta llamadas y tokens de ambos pipelines
         registros = []
         for i, it in enumerate(items, 1):
-            r = rag_core.rag_pipeline(it["pregunta"], store, llm, k=args.k)
+            contador.reset()
+            t0 = time.perf_counter()
+            if args.pipeline == "agente":
+                # retrieved_contexts = fragmentos que devolvieron las tools del agente.
+                # Sin web: se compara contra el pipeline fijo con la misma base.
+                r = rag_core.agent_pipeline(it["pregunta"], store, llm, k=args.k,
+                                            usar_web=False, registrar=False)
+            else:
+                r = rag_core.rag_pipeline(it["pregunta"], store, llm, k=args.k)
             registros.append({
                 "pregunta": it["pregunta"], "ground_truth": it["ground_truth"],
                 "en_corpus": it["en_corpus"], "respuesta": r["respuesta"],
                 "contextos": [d.page_content for d in r["fragmentos"]],
                 "sin_respuesta": r["sin_respuesta"],
+                "herramientas": r.get("herramientas", []),
+                "llamadas_llm": contador.llamadas,
+                "tokens": contador.tokens,
+                "tiempo_s": round(time.perf_counter() - t0, 2),
             })
             print(f"[{i}/{len(items)}] {'OK ' if it['en_corpus'] else 'OOS'} {it['pregunta'][:70]}")
             time.sleep(args.sleep)
@@ -166,7 +183,7 @@ def run_eval(args):
 
     resumen = {
         "tag": args.tag,
-        "config": {"k": args.k, "chunk_size": args.chunk_size, "overlap": args.overlap,
+        "config": {"pipeline": args.pipeline, "k": args.k, "chunk_size": args.chunk_size, "overlap": args.overlap,
                    "embedding": rag_core.EMBEDDING_MODEL, "generador": rag_core.GROQ_MODEL,
                    "juez": JUDGE_MODEL},
         "metricas": medias,
@@ -176,6 +193,11 @@ def run_eval(args):
         "alucinaciones": fallos,
         "falsos_rechazos": falsos_rechazos,
         "n_dentro": len(dentro), "n_fuera": len(fuera),
+        "costo_promedio": {
+            c: (sum(r[c] for r in registros if r.get(c) is not None) /
+                max(1, sum(1 for r in registros if r.get(c) is not None)))
+            for c in ("llamadas_llm", "tokens", "tiempo_s")
+        },
     }
     with open(os.path.join(RESULTS_DIR, f"{args.tag}.json"), "w", encoding="utf-8") as f:
         json.dump(resumen, f, indent=2, ensure_ascii=False)
@@ -330,6 +352,8 @@ def compare(tag_a: str, tag_b: str):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--tag", default="base")
+    ap.add_argument("--pipeline", choices=["fijo", "agente"], default="fijo",
+                    help="fijo = rag_pipeline (Avance 2); agente = agent_pipeline con tools (Avance 3)")
     ap.add_argument("--k", type=int, default=rag_core.DEFAULT_K)
     ap.add_argument("--chunk-size", type=int, default=rag_core.CHUNK_SIZE)
     ap.add_argument("--overlap", type=int, default=rag_core.CHUNK_OVERLAP)

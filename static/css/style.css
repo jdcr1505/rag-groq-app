@@ -1008,6 +1008,29 @@ input[type="range"] {
 }
 .tool-chip__label { flex: none; color: var(--muted); }
 
+.tools { margin-top: 18px; font-size: 12px; }
+.tools > summary { cursor: pointer; color: var(--muted); }
+.tools__list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.tools__list .tool-chip { white-space: normal; border-radius: 10px; }
+.tools__list code { font-size: 11.5px; word-break: break-word; }
+.sources__group {
+  margin: 6px 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cite--calc { cursor: default; }
+
 /* Resultado web en la lista de fuentes */
 
 .fragment--web a.fragment__doc {

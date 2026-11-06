@@ -307,7 +307,7 @@ def api_ask():
     data = request.get_json(silent=True) or {}
     pregunta = str(data.get("pregunta", "")).strip()
     try:
-        k = max(1, min(int(data.get("k", rag_core.DEFAULT_K)), 15))
+        k = max(1, min(int(data.get("k", rag_core.DEFAULT_K)), rag_core.herramientas.MAX_FRAGMENTOS_POR_LLAMADA))
     except (TypeError, ValueError):
         k = rag_core.DEFAULT_K
     usar_web = bool(data.get("web"))
@@ -364,6 +364,8 @@ def api_ask():
             "fuentes_web": [] if r["sin_respuesta"] else fuentes_web,
             "tokens_contexto_aprox": r["tokens_contexto_aprox"],
             "n_recuperados": len(r["fuentes"]),
+            "llamadas_llm": r.get("llamadas_llm"),
+            "tiempo_s": r.get("tiempo_s"),
         }
     except Exception as e:
         traceback.print_exc()  # el detalle técnico queda solo en la consola/logs

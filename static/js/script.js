@@ -465,8 +465,11 @@ function etiquetaUbic(u) {
   return m ? `p. ${m[1]}` : String(u);
 }
 
-// Cita de la búsqueda web: (Web: https://...)
-const WEB_RE = /\(\s*Web:\s*(https?:\/\/[^\s()<>"]+?)\s*\)/gi;
+// Cita de la búsqueda web: [web: https://...] (formato del Avance 3) o (Web: https://...)
+const WEB_RE = /[\[(]\s*web:\s*(https?:\/\/[^\s()<>"\[\]]+?)\s*[\])]/gi;
+// Cita de la tool de tarea: (Cálculo: calcular_plazo_habil)
+const CALC_RE = /\(\s*Cálculo:\s*([a-z_]+)\s*\)/gi;
+const ICONO_CALC = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>';
 
 const ICONO_WEB = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 2.5 14.4 0 17M12 3.5c-2.5 2.6-2.5 14.4 0 17"/></svg>';
 
@@ -489,7 +492,8 @@ function formatoInline(texto) {
       try { host = new URL(url.replace(/&amp;/g, "&")).hostname.replace(/^www\./, ""); } catch (e) { /* URL rara: se muestra tal cual */ }
       return `<a class="cite cite--web" href="${url}" target="_blank" rel="noopener noreferrer" title="${url}">` +
         `${ICONO_WEB}${escapeHtml(host)}</a>`;
-    });
+    })
+    .replace(CALC_RE, () => `<span class="cite cite--calc" title="Calculado con la tool calcular_plazo_habil">${ICONO_CALC}Cálculo</span>`);
 }
 
 const ITEM_RE = /^\s*([-*•]|\d+[.)])\s+/;
@@ -549,6 +553,14 @@ function renderFuentes(fuentes, citadas, fuentesWeb = []) {
   const lista = document.createElement("div");
   lista.className = "sources__list";
 
+  const grupo = (texto) => {
+    const h = document.createElement("p");
+    h.className = "sources__group";
+    h.textContent = texto;
+    lista.appendChild(h);
+  };
+  if (fuentes.length) grupo(`Base de conocimientos · ${fuentes.length} fragmentos`);
+
   fuentes.forEach((f) => {
     const frag = document.createElement("div");
     frag.className = "fragment";
@@ -583,6 +595,8 @@ function renderFuentes(fuentes, citadas, fuentesWeb = []) {
     lista.appendChild(frag);
   });
 
+  if (fuentesWeb.length) grupo(`Web (sitios oficiales permitidos) · ${fuentesWeb.length} resultados`);
+
   fuentesWeb.forEach((w) => {
     const frag = document.createElement("div");
     frag.className = "fragment fragment--web";
@@ -609,24 +623,46 @@ function renderFuentes(fuentes, citadas, fuentesWeb = []) {
   return det;
 }
 
-// Qué herramientas usó el modelo para responder
-function renderHerramientas(herramientas) {
-  const p = document.createElement("p");
-  p.className = "msg__tools";
+// Qué herramientas usó el agente y con qué argumentos (sección desplegable)
+const TOOLS_INFO = {
+  buscar_normativa: { etiqueta: "Base", icono: () => ICONO_DOC, clase: "doc" },
+  calcular_plazo_habil: { etiqueta: "Cálculo", icono: () => ICONO_CALC, clase: "calc" },
+  buscar_en_web: { etiqueta: "Web", icono: () => ICONO_WEB, clase: "web" },
+  web_search: { etiqueta: "Web", icono: () => ICONO_WEB, clase: "web" },
+};
+
+function renderHerramientas(herramientas, data = {}) {
+  const det = document.createElement("details");
+  det.className = "tools";
+  const sum = document.createElement("summary");
+  const partes = [`Herramientas usadas (${herramientas.length})`];
+  if (data.llamadas_llm) partes.push(`${data.llamadas_llm} llamadas al LLM`);
+  if (data.tiempo_s) partes.push(`${Number(data.tiempo_s).toFixed(1)} s`);
+  sum.textContent = partes.join(" · ");
+  det.appendChild(sum);
+
+  const lista = document.createElement("ol");
+  lista.className = "tools__list";
   herramientas.forEach((h) => {
-    const chip = document.createElement("span");
-    chip.className = `tool-chip tool-chip--${h.nombre === "web_search" ? "web" : "doc"}`;
-    chip.innerHTML = h.nombre === "web_search" ? ICONO_WEB : ICONO_DOC;
-    const etiqueta = document.createElement("span");
-    etiqueta.textContent = h.nombre === "web_search" ? "Web: " : "Normativa: ";
-    etiqueta.className = "tool-chip__label";
-    const consulta = document.createElement("span");
-    consulta.textContent = h.consulta;
-    chip.append(etiqueta, consulta);
-    chip.title = h.consulta;
-    p.appendChild(chip);
+    const info = TOOLS_INFO[h.nombre] || { etiqueta: h.nombre, icono: () => ICONO_DOC, clase: "doc" };
+    const li = document.createElement("li");
+    li.className = `tool-chip tool-chip--${info.clase}`;
+    li.innerHTML = info.icono();
+    const nombre = document.createElement("span");
+    nombre.className = "tool-chip__label";
+    nombre.textContent = `${h.nombre}(`;
+    const args = document.createElement("code");
+    const a = h.args && typeof h.args === "object" ? h.args : { consulta: h.consulta };
+    args.textContent = Object.entries(a).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ");
+    const cierre = document.createElement("span");
+    cierre.className = "tool-chip__label";
+    cierre.textContent = ")";
+    li.append(nombre, args, cierre);
+    li.title = `${info.etiqueta}: ${args.textContent}`;
+    lista.appendChild(li);
   });
-  return p;
+  det.appendChild(lista);
+  return det;
 }
 
 function botonCopiar(texto) {
@@ -698,7 +734,7 @@ function completarRespuesta(msg, body, data, pregunta) {
   if (data.sin_respuesta) msg.classList.add("msg--abstain");
 
   if (data.herramientas && data.herramientas.length) {
-    msg.appendChild(renderHerramientas(data.herramientas));
+    msg.appendChild(renderHerramientas(data.herramientas, data));
   } else if (data.pregunta_independiente && data.pregunta_independiente !== pregunta) {
     const re = document.createElement("p");
     re.className = "msg__rewrite";
@@ -728,7 +764,9 @@ function completarRespuesta(msg, body, data, pregunta) {
     const citadas = new Set(
       [...body.querySelectorAll(".cite:not(.cite--web)")].map((c) => `${c.dataset.fuente}|${c.dataset.ubicacion}`)
     );
-    footer.appendChild(renderFuentes(data.fuentes || [], citadas, fuentesWeb));
+    // Si la respuesta solo cita la web, los fragmentos de la base no la respaldan: no se muestran
+    const soloWeb = citadas.size === 0 && fuentesWeb.length > 0 && body.querySelector(".cite--web");
+    footer.appendChild(renderFuentes(soloWeb ? [] : (data.fuentes || []), citadas, fuentesWeb));
   }
   msg.appendChild(footer);
 

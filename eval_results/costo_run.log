@@ -1,0 +1,24 @@
+Base vectorial al día con la carpeta pdfs/ — cargando desde disco.
+[1/8] fijo   llamadas=1 tokens=2109 t=1.14s
+[1/8] agente llamadas=2 tokens=4326 t=10.07s
+[2/8] fijo   llamadas=1 tokens=2234 t=10.06s
+[2/8] agente llamadas=2 tokens=4367 t=26.86s
+[3/8] fijo   llamadas=1 tokens=2402 t=9.73s
+[3/8] agente llamadas=2 tokens=4455 t=28.01s
+[4/8] fijo   llamadas=1 tokens=2383 t=11.82s
+[4/8] agente llamadas=3 tokens=8477 t=46.94s
+[5/8] fijo   llamadas=1 tokens=2094 t=0.9s
+[5/8] agente llamadas=2 tokens=4199 t=21.71s
+[6/8] fijo   llamadas=1 tokens=2148 t=11.6s
+[6/8] agente llamadas=2 tokens=4286 t=20.52s
+[7/8] fijo   llamadas=1 tokens=2288 t=1.86s
+[7/8] agente llamadas=2 tokens=4415 t=23.59s
+[8/8] fijo   llamadas=1 tokens=2285 t=1.67s
+[8/8] agente llamadas=2 tokens=4396 t=19.08s
+
+| Medida (promedio por pregunta) | Pipeline fijo | Agente |
+|---|---|---|
+| Llamadas al LLM | 1.0 | 2.12 |
+| Tokens | 2242.88 | 4865.12 |
+| Tiempo (s) | 6.1 | 24.6 |
+Preguntas: 8. Guardado en eval_results/costo_fijo_vs_agente.json

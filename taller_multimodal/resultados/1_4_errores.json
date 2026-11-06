@@ -1,0 +1,20 @@
+[
+  {
+    "prueba": "Más imágenes de las permitidas (4 en una solicitud; el límite es 3)",
+    "modelo": "qwen/qwen3.8-27b",
+    "http_status": 400,
+    "mensaje": "BadRequestError (HTTP 400): {\"error\": {\"message\": \"Too many images provided.  This model supports up to 3 images\", \"type\": \"invalid_request_error\"}}"
+  },
+  {
+    "prueba": "Modelo sin visión (openai/gpt-oss-120b) recibiendo una imagen",
+    "modelo": "openai/gpt-oss-120b",
+    "http_status": 400,
+    "mensaje": "BadRequestError (HTTP 400): {\"error\": {\"message\": \"messages[0].content must be a string\", \"type\": \"invalid_request_error\", \"param\": \"messages[0].content\"}}"
+  },
+  {
+    "prueba": "Tipo de imagen mal declarado (JPEG enviado como image/gif)",
+    "modelo": "qwen/qwen3.8-27b",
+    "http_status": 200,
+    "mensaje": "SIN ERROR. Respuesta: Este documento es un **derecho de petición** (también conocido como “solicitud”) presentado por **María Fernanda Rojas Pérez** ante la **Alcaldía Distrital de Villa Serena**, en su calidad de Secretaría de Movilidad, ubicado en Barranquilla.\n\n### Detalles clave del documento:\n\n- **Fecha de presentac"
+  }
+]
