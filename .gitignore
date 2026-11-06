@@ -8,3 +8,6 @@ fastembed_cache/
 interactions.jsonl
 .venv-eval/
 usuarios.db
+logs/
+.playwright-mcp/
+.claude/launch.json

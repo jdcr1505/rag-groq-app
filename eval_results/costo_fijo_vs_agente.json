@@ -1,0 +1,147 @@
+{
+ "resumen": {
+  "fijo": {
+   "llamadas_llm": 1.0,
+   "tokens": 2242.88,
+   "tiempo_s": 6.1,
+   "n_tools": 0.0
+  },
+  "agente": {
+   "llamadas_llm": 2.12,
+   "tokens": 4865.12,
+   "tiempo_s": 24.6,
+   "n_tools": 1.12
+  },
+  "n_preguntas": 8
+ },
+ "detalle": [
+  {
+   "pregunta": "¿En cuántos días debe resolverse, por regla general, una petición presentada ante una autoridad?",
+   "pipeline": "fijo",
+   "llamadas_llm": 1,
+   "tokens": 2109,
+   "tiempo_s": 1.14,
+   "n_tools": 0
+  },
+  {
+   "pregunta": "¿En cuántos días debe resolverse, por regla general, una petición presentada ante una autoridad?",
+   "pipeline": "agente",
+   "llamadas_llm": 2,
+   "tokens": 4326,
+   "tiempo_s": 10.07,
+   "n_tools": 1
+  },
+  {
+   "pregunta": "¿Qué pasa si la autoridad no responde una petición de documentos o de información dentro del plazo?",
+   "pipeline": "fijo",
+   "llamadas_llm": 1,
+   "tokens": 2234,
+   "tiempo_s": 10.06,
+   "n_tools": 0
+  },
+  {
+   "pregunta": "¿Qué pasa si la autoridad no responde una petición de documentos o de información dentro del plazo?",
+   "pipeline": "agente",
+   "llamadas_llm": 2,
+   "tokens": 4367,
+   "tiempo_s": 26.86,
+   "n_tools": 1
+  },
+  {
+   "pregunta": "¿Qué recursos proceden contra un acto administrativo definitivo y en qué plazo se interponen la reposición y la apelación?",
+   "pipeline": "fijo",
+   "llamadas_llm": 1,
+   "tokens": 2402,
+   "tiempo_s": 9.73,
+   "n_tools": 0
+  },
+  {
+   "pregunta": "¿Qué recursos proceden contra un acto administrativo definitivo y en qué plazo se interponen la reposición y la apelación?",
+   "pipeline": "agente",
+   "llamadas_llm": 2,
+   "tokens": 4455,
+   "tiempo_s": 28.01,
+   "n_tools": 1
+  },
+  {
+   "pregunta": "¿Cuánto tiempo tengo para demandar la nulidad y restablecimiento del derecho de un acto administrativo y cuánto para una reparación directa?",
+   "pipeline": "fijo",
+   "llamadas_llm": 1,
+   "tokens": 2383,
+   "tiempo_s": 11.82,
+   "n_tools": 0
+  },
+  {
+   "pregunta": "¿Cuánto tiempo tengo para demandar la nulidad y restablecimiento del derecho de un acto administrativo y cuánto para una reparación directa?",
+   "pipeline": "agente",
+   "llamadas_llm": 3,
+   "tokens": 8477,
+   "tiempo_s": 46.94,
+   "n_tools": 2
+  },
+  {
+   "pregunta": "¿Qué término mínimo de garantía legal tiene un producto nuevo si el productor no indicó uno?",
+   "pipeline": "fijo",
+   "llamadas_llm": 1,
+   "tokens": 2094,
+   "tiempo_s": 0.9,
+   "n_tools": 0
+  },
+  {
+   "pregunta": "¿Qué término mínimo de garantía legal tiene un producto nuevo si el productor no indicó uno?",
+   "pipeline": "agente",
+   "llamadas_llm": 2,
+   "tokens": 4199,
+   "tiempo_s": 21.71,
+   "n_tools": 1
+  },
+  {
+   "pregunta": "Si mi producto ya fue reparado dos veces por el mismo defecto y falla otra vez, ¿qué puedo exigir?",
+   "pipeline": "fijo",
+   "llamadas_llm": 1,
+   "tokens": 2148,
+   "tiempo_s": 11.6,
+   "n_tools": 0
+  },
+  {
+   "pregunta": "Si mi producto ya fue reparado dos veces por el mismo defecto y falla otra vez, ¿qué puedo exigir?",
+   "pipeline": "agente",
+   "llamadas_llm": 2,
+   "tokens": 4286,
+   "tiempo_s": 20.52,
+   "n_tools": 1
+  },
+  {
+   "pregunta": "Compré algo por internet y me arrepentí, ¿puedo devolverlo y en cuánto tiempo me regresan el dinero?",
+   "pipeline": "fijo",
+   "llamadas_llm": 1,
+   "tokens": 2288,
+   "tiempo_s": 1.86,
+   "n_tools": 0
+  },
+  {
+   "pregunta": "Compré algo por internet y me arrepentí, ¿puedo devolverlo y en cuánto tiempo me regresan el dinero?",
+   "pipeline": "agente",
+   "llamadas_llm": 2,
+   "tokens": 4415,
+   "tiempo_s": 23.59,
+   "n_tools": 1
+  },
+  {
+   "pregunta": "¿Qué plazo tiene el responsable de una base de datos para atender una consulta de un titular y se puede prorrogar?",
+   "pipeline": "fijo",
+   "llamadas_llm": 1,
+   "tokens": 2285,
+   "tiempo_s": 1.67,
+   "n_tools": 0
+  },
+  {
+   "pregunta": "¿Qué plazo tiene el responsable de una base de datos para atender una consulta de un titular y se puede prorrogar?",
+   "pipeline": "agente",
+   "llamadas_llm": 2,
+   "tokens": 4396,
+   "tiempo_s": 19.08,
+   "n_tools": 1
+  }
+ ]
+}

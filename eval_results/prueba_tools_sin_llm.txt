@@ -1,0 +1,52 @@
+Base vectorial al día con la carpeta pdfs/ — cargando desde disco.
+=== buscar_normativa.invoke ===
+[Fuente: ley_1437_2011.docx — Art. 14]
+Artículo 14. Términos para resolver las distintas modalidades de peticiones.
+
+Salvo norma legal especial y so pena de sanción disciplinaria, toda petición deberá resolverse dentro de los quince (15) días siguientes a su recepción. Estará sometida a término especial la resolución de las siguientes peticiones:
+
+1. Las peticiones de documentos y de información deberán resolverse dentro de los diez (10) días siguientes a su recepción. Si en ese lapso no se ha dado respuesta al peticionario, se entenderá, para todos los efectos legales, que la respectiva solicitud ha sido aceptada.
+
+2. Las peticiones mediante las cuales se eleva una consulta a las autoridades en relación con las materias a su cargo deberán resolverse dentro de los treinta (30) días siguientes a su recepción.
+
+---
+
+[Fuente: ley_1581_2012.docx — Art. 15]
+Artículo 15. Reclamos.
+
+El Titular que considere que la información contenida en una base de datos debe ser objeto de corrección, actualización o supresión, podrá presentar un reclamo ante el Responsable o Encargado. El reclamo se tramitará una vez recibido con la documentación completa; el término máximo para atenderlo será de quince (15) días hábiles contados a partir del día siguiente a la fecha de su recibo. Cuando no fuere posible atenderlo dentro de dicho término, se informará al interesado los motivos de la demora y la fecha en que se atenderá, la cual no podrá superar los ocho (8) días hábiles siguientes al vencimiento del primer término.
+
+---
+
+[Fuente: ley_1437_2011.docx — Art. 164]
+Artículo 164. Oportunidad para presentar la demanda. (Caducidad)
+
+La demanda deberá ser presentada:
+
+1. En cualquier tiempo, cuando se pretenda la nulidad de un acto administrativo de contenido general.
+
+2. En los siguientes términos, 
+...
+
+=== calcular_plazo_habil.invoke ===
+[Cálculo: calcular_plazo_habil]
+Fecha de inicio: 2026-12-18 (viernes). Plazo: 15 días hábiles, contados desde el día siguiente.
+Vence el 2027-01-13 (miércoles), 26 días calendario después.
+Festivos excluidos en el periodo: 2026-12-25 (Navidad), 2027-01-01 (Año Nuevo), 2027-01-11 (Reyes Magos).
+
+=== calcular_plazo_habil.invoke (fecha inválida) ===
+Error: fecha_inicio debe tener el formato AAAA-MM-DD.
+
+=== buscar_en_web.invoke ===
+[origen: web | Resolución 000227 de 2025 | https://www.dian.gov.co/normatividad/Proyectosnormas/Proyecto%20Resoluci%C3%B3n%20000000%20de%2019-11-2025.pdf]
+del 18 de noviembre de 2025, certificó el cálculo del valor actualizado de la Unidad de Valor Tributario – UVT para el año 2026, en cincuenta y dos mil trescientos setenta y cuatro pesos ($52.374). Que por lo anterior, se hace necesario establecer mediante la presente Resolución, el valor de la Unid
+
+---
+
+[origen: web | Compilación Jurídica de la DIAN - Concepto 14 de 2026 DIAN | https://normograma.dian.gov.co/dian/compilacion/docs/oficio_dian_0014_2026.htm]
+8.Mediante Resolución No. 000238 del 15 de diciembre de 2025 la DIAN fijó el valor de la UVT para el año 2026 en $52.374. 9.Por ejemplo: (i) procesos de facturación, (ii) registro de ventas, (iii) control de inventarios y (iv) gestión de medios de pago. [...] 14. De esta manera, para que se configur
+
+---
+
+[origen: web | Cuadro-Valores-Patrimonio-Garantias- ... | https://www.dian.gov.co/aduanas/Documents/Cuadro-Valores-Patrimonio-Garantias-UA-2026.pdf]
+VALOR AÑO 2026 UVT $ 52,374 NIVEL 1 (Numeral 4.1 artículo 36 Decreto 1165 de 2019) $ 8.311.753.800 NIVEL 1 (Paragrafo 2 numeral 1 artículo 36 Decreto 1165 de 2019) $ 2.204.002.668 NIVEL 1 (Paragrafo 2 numeral 2 artículo 36 Decreto 1165 de 2019) $ 1.873.365.606 NIVEL 1 (Paragrafo 2 numeral 3 artículo
