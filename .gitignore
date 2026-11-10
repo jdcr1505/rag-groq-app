@@ -8,3 +8,5 @@ fastembed_cache/
 interactions.jsonl
 .venv-eval/
 usuarios.db
+agent_usage.jsonl
+eval_results/costo_parcial.json

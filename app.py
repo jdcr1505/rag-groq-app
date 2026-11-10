@@ -363,6 +363,7 @@ def api_ask():
             "fuentes": [] if r["sin_respuesta"] else fuentes,
             "fuentes_web": [] if r["sin_respuesta"] else fuentes_web,
             "tokens_contexto_aprox": r["tokens_contexto_aprox"],
+            "uso": r.get("uso"),
             "n_recuperados": len(r["fuentes"]),
         }
     except Exception as e:

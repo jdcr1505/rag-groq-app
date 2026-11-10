@@ -1,0 +1,41 @@
+[
+ {
+  "respuesta": "No encontré información sobre esto en la base de conocimientos.",
+  "herramientas": [
+   {
+    "nombre": "buscar_normativa",
+    "args": {
+     "consulta": "¿Cuál es la capital de Australia?"
+    },
+    "bloqueada": false
+   }
+  ],
+  "uso": {
+   "llamadas_llm": 2,
+   "tokens_entrada": 4081,
+   "tokens_salida": 234,
+   "tokens_total": 4315,
+   "segundos": 1.66
+  },
+  "criterios": [
+   [
+    "busca en la base antes de responder",
+    true
+   ],
+   [
+    "responde exactamente la frase de sin información",
+    true
+   ],
+   [
+    "no menciona Canberra",
+    true
+   ]
+  ],
+  "cumple": true,
+  "id": 10,
+  "tipo": "Pregunta de cultura general (no responder de memoria)",
+  "pregunta": "¿Cuál es la capital de Australia?",
+  "esperado": "Llama buscar_normativa antes de responder (no usa su propio conocimiento), no encuentra nada relacionado y responde exactamente la frase de 'sin información', sin mencionar ninguna ciudad.",
+  "web": false
+ }
+]

@@ -1,0 +1,48 @@
+{
+  "abstencion": "4/4",
+  "valor": 1.0,
+  "detalle": [
+    {
+      "pregunta": "¿Cuál es el valor de la UVT para el año 2026?",
+      "se_abstuvo": true,
+      "herramientas": [
+        "buscar_normativa",
+        "buscar_normativa",
+        "buscar_normativa",
+        "buscar_normativa"
+      ],
+      "respuesta": "No encontré información sobre esto en la base de conocimientos."
+    },
+    {
+      "pregunta": "¿Cuántos días de vacaciones remuneradas tiene un trabajador al año?",
+      "se_abstuvo": true,
+      "herramientas": [
+        "buscar_normativa",
+        "buscar_normativa",
+        "buscar_normativa",
+        "buscar_normativa"
+      ],
+      "respuesta": "No encontré información sobre esto en la base de conocimientos."
+    },
+    {
+      "pregunta": "¿Cuál es la pena por el delito de hurto agravado?",
+      "se_abstuvo": true,
+      "herramientas": [
+        "buscar_normativa",
+        "buscar_normativa",
+        "buscar_normativa",
+        "buscar_normativa"
+      ],
+      "respuesta": "No encontré información sobre esto en la base de conocimientos."
+    },
+    {
+      "pregunta": "¿Cuál es la capital de Australia?",
+      "se_abstuvo": true,
+      "herramientas": [
+        "buscar_normativa"
+      ],
+      "respuesta": "No encontré información sobre esto en la base de conocimientos."
+    }
+  ],
+  "nota": "Prompt posterior a la regla 'siempre buscar antes de responder'. No es una corrida de Ragas."
+}

@@ -9,6 +9,9 @@ Modos:
                                                            # y answer_relevancy (precision/recall se copian)
   python evaluate_ragas.py --tag k4 --k 4
   python evaluate_ragas.py --compare base prompt2          # tabla + gráfico
+  python evaluate_ragas.py --costo                         # costo pipeline fijo vs agente (sin juez Ragas);
+                                                           # guarda agente_gen.json para reutilizarlo
+  python evaluate_ragas.py --agent --tag agente --reuse-gen  # Ragas del agente (web apagada)
   python evaluate_ragas.py --from-log --last 30            # uso real (interactions.jsonl)
 
 Cada variante de chunking usa su propia colección de Chroma (eval_c{size}_o{overlap}),
@@ -107,6 +110,41 @@ def ragas_scores(filas: list, metricas: list, emb_model) -> pd.DataFrame:
     return result.to_pandas()
 
 
+# ───────────────────────── Generación (pipeline fijo o agente) ─────────────────────────
+
+def registro_de(it: dict, r: dict) -> dict:
+    """Un registro de generación. Para el agente, los contextos son los fragmentos que devolvieron las tools."""
+    return {
+        "pregunta": it["pregunta"], "ground_truth": it["ground_truth"],
+        "en_corpus": it["en_corpus"], "respuesta": r["respuesta"],
+        "contextos": [d.page_content for d in r["fragmentos"]],
+        "sin_respuesta": r["sin_respuesta"],
+        "modo": r.get("modo", "pipeline"),
+        "herramientas": [{"nombre": h["nombre"], "args": h["args"]} for h in r.get("herramientas", [])],
+        "uso": r.get("uso"),
+    }
+
+
+def generar_una(it, store, llm, k, agente: bool) -> dict:
+    if agente:
+        # Web apagada: Ragas compara la base contra la base (los contextos web no están en el ground truth)
+        return rag_core.agent_pipeline(it["pregunta"], store, llm, k=k, usar_web=False, origen="ragas_agente")
+    return rag_core.rag_pipeline(it["pregunta"], store, llm, k=k)
+
+
+def uso_promedio(registros: list) -> dict:
+    us = [r["uso"] for r in registros if r.get("uso")]
+    if not us:
+        return {}
+    n = len(us)
+    return {
+        "n": n,
+        "llamadas_llm": round(sum(u["llamadas_llm"] for u in us) / n, 2),
+        "tokens_total": round(sum(u["tokens_total"] for u in us) / n),
+        "segundos": round(sum(u["segundos"] for u in us) / n, 2),
+    }
+
+
 # ───────────────────────── Modo 1: dataset completo ─────────────────────────
 
 def run_eval(args):
@@ -124,14 +162,10 @@ def run_eval(args):
     else:
         registros = []
         for i, it in enumerate(items, 1):
-            r = rag_core.rag_pipeline(it["pregunta"], store, llm, k=args.k)
-            registros.append({
-                "pregunta": it["pregunta"], "ground_truth": it["ground_truth"],
-                "en_corpus": it["en_corpus"], "respuesta": r["respuesta"],
-                "contextos": [d.page_content for d in r["fragmentos"]],
-                "sin_respuesta": r["sin_respuesta"],
-            })
-            print(f"[{i}/{len(items)}] {'OK ' if it['en_corpus'] else 'OOS'} {it['pregunta'][:70]}")
+            r = generar_una(it, store, llm, args.k, args.agent)
+            registros.append(registro_de(it, r))
+            extra = f" tools={[h['nombre'] for h in r.get('herramientas', [])]}" if args.agent else ""
+            print(f"[{i}/{len(items)}] {'OK ' if it['en_corpus'] else 'OOS'} {it['pregunta'][:60]}{extra}")
             time.sleep(args.sleep)
         with open(gen_path, "w", encoding="utf-8") as f:
             json.dump(registros, f, ensure_ascii=False, indent=1)
@@ -176,6 +210,10 @@ def run_eval(args):
         "alucinaciones": fallos,
         "falsos_rechazos": falsos_rechazos,
         "n_dentro": len(dentro), "n_fuera": len(fuera),
+        "modo_evaluado": "agente" if args.agent else "pipeline",
+        "fallbacks_a_pipeline_clasico": sum(1 for r in registros if r.get("modo") == "clasico"),
+        "preguntas_dentro_sin_contexto": sum(1 for r in dentro if not r["contextos"]),
+        "uso_promedio": uso_promedio(registros),
     }
     with open(os.path.join(RESULTS_DIR, f"{args.tag}.json"), "w", encoding="utf-8") as f:
         json.dump(resumen, f, indent=2, ensure_ascii=False)
@@ -184,6 +222,114 @@ def run_eval(args):
     print("\n=== RESULTADOS", args.tag, "===")
     print(json.dumps(resumen, indent=2, ensure_ascii=False))
     diagnostico(medias)
+
+
+# ───────────────────────── Modo costo: pipeline fijo vs agente ─────────────────────────
+
+def run_costo(args):
+    """
+    Corre las MISMAS preguntas con el pipeline fijo y con el agente (web apagada) y compara llamadas al LLM,
+    tokens y tiempo. No usa el juez de Ragas. Guarda la generación del agente en agente_gen.json para que
+    `--agent --tag agente --reuse-gen` no la repita.
+    """
+    items = load_dataset(DATASET_PATH)
+    store, _ = get_store(args.chunk_size, args.overlap, args.rebuild)
+    llm = rag_core.get_llm()
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+
+    # Avance guardado: si Groq corta por límite diario, al repetir el comando se retoma donde quedó
+    parcial_path = os.path.join(RESULTS_DIR, "costo_parcial.json")
+    hecho = {}
+    if os.path.isfile(parcial_path):
+        with open(parcial_path, encoding="utf-8") as f:
+            hecho = json.load(f)
+        print(f"Retomando: {len(hecho)} pregunta(s) ya completadas en {parcial_path}.")
+
+    filas, regs_agente, seguidas_con_error = [], [], 0
+    for i, it in enumerate(items, 1):
+        if it["pregunta"] in hecho:
+            filas.append(hecho[it["pregunta"]]["fila"])
+            regs_agente.append(hecho[it["pregunta"]]["registro"])
+            print(f"[{i}/{len(items)}] (ya hecha) {it['pregunta'][:60]}")
+            continue
+        fila, reg = {"pregunta": it["pregunta"], "en_corpus": it["en_corpus"]}, None
+        for nombre, agente in (("pipeline", False), ("agente", True)):
+            try:
+                r = generar_una(it, store, llm, args.k, agente)
+                u = r["uso"]
+                fila.update({f"{nombre}_llamadas": u["llamadas_llm"], f"{nombre}_tokens": u["tokens_total"],
+                             f"{nombre}_segundos": u["segundos"]})
+                if agente:
+                    fila["agente_tools"] = len(r["herramientas"])
+                    reg = registro_de(it, r)
+            except Exception as ex:  # una pregunta fallida no detiene la corrida
+                fila[f"{nombre}_error"] = str(ex)[:120]
+            time.sleep(args.sleep)
+        print(f"[{i}/{len(items)}] {it['pregunta'][:60]} -> { {k: v for k, v in fila.items() if k != 'pregunta'} }")
+        con_error = "pipeline_error" in fila or "agente_error" in fila
+        seguidas_con_error = seguidas_con_error + 1 if con_error else 0
+        if not con_error:
+            hecho[it["pregunta"]] = {"fila": fila, "registro": reg}
+            with open(parcial_path, "w", encoding="utf-8") as f:
+                json.dump(hecho, f, ensure_ascii=False)
+            filas.append(fila)
+            regs_agente.append(reg)
+        if seguidas_con_error >= 2:
+            print("\nDos preguntas seguidas con error: parece el límite diario de Groq. Me detengo.\n"
+                  f"Quedaron guardadas {len(hecho)} de {len(items)}. Vuelve a ejecutar el MISMO comando cuando haya cupo: retoma desde aquí.")
+            return
+
+    df = pd.DataFrame(filas)
+    df.to_csv(os.path.join(RESULTS_DIR, "costo_pipeline_vs_agente_detalle.csv"), index=False, encoding="utf-8")
+    with open(os.path.join(RESULTS_DIR, "agente_gen.json"), "w", encoding="utf-8") as f:
+        json.dump(regs_agente, f, ensure_ascii=False, indent=1)
+    print("Generación del agente guardada en agente_gen.json (reutilizable con --reuse-gen).")
+
+    def medias(sub):
+        ok = sub.dropna(subset=["pipeline_llamadas", "agente_llamadas"])
+        return {"n": len(ok),
+                "pipeline": {"llamadas_llm": round(ok["pipeline_llamadas"].mean(), 2), "tokens": round(ok["pipeline_tokens"].mean()),
+                             "segundos": round(ok["pipeline_segundos"].mean(), 2)},
+                "agente": {"llamadas_llm": round(ok["agente_llamadas"].mean(), 2), "tokens": round(ok["agente_tokens"].mean()),
+                           "segundos": round(ok["agente_segundos"].mean(), 2)}}
+
+    resumen = {"preguntas": len(items), "k": args.k, "todas": medias(df),
+               "dentro_del_corpus": medias(df[df["en_corpus"]]), "fuera_del_corpus": medias(df[~df["en_corpus"]]),
+               "nota": "Los segundos incluyen esperas por reintentos ante límites de Groq (429); las llamadas y tokens son más estables."}
+    with open(os.path.join(RESULTS_DIR, "costo_pipeline_vs_agente.json"), "w", encoding="utf-8") as f:
+        json.dump(resumen, f, indent=2, ensure_ascii=False)
+    print("\n=== COSTO (promedio por pregunta) ===")
+    print(json.dumps(resumen, indent=2, ensure_ascii=False))
+
+
+# ───────────────────────── Modo abstención: solo las preguntas fuera del corpus ─────────────────────────
+
+def run_abstencion(args):
+    """
+    Corre SOLO las preguntas fuera del corpus con el agente actual (web apagada) y cuenta cuántas veces se abstiene.
+    No usa el juez de Ragas (la abstención se mide con sin_respuesta). Sirve para comprobar un cambio de prompt
+    sin repetir la evaluación completa; NO reemplaza la tabla de Ragas, que sigue siendo la de agente.json.
+    """
+    items = [i for i in load_dataset(DATASET_PATH) if not i["en_corpus"]]
+    store, _ = get_store(args.chunk_size, args.overlap, args.rebuild)
+    llm = rag_core.get_llm()
+    filas = []
+    for it in items:
+        r = generar_una(it, store, llm, args.k, True)
+        fila = {"pregunta": it["pregunta"], "se_abstuvo": bool(r["sin_respuesta"]),
+                "herramientas": [h["nombre"] for h in r["herramientas"]], "respuesta": r["respuesta"][:300]}
+        filas.append(fila)
+        print(f"{'ABSTUVO' if fila['se_abstuvo'] else 'RESPONDIO'} | tools={fila['herramientas']} | {it['pregunta'][:70]}")
+        if not fila["se_abstuvo"]:
+            print("   respuesta:", fila["respuesta"])
+        time.sleep(args.sleep)
+    n = sum(f["se_abstuvo"] for f in filas)
+    resumen = {"abstencion": f"{n}/{len(filas)}", "valor": n / len(filas) if filas else None, "detalle": filas,
+               "nota": "Prompt posterior a la regla 'siempre buscar antes de responder'. No es una corrida de Ragas."}
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    with open(os.path.join(RESULTS_DIR, "abstencion_agente_prompt_actual.json"), "w", encoding="utf-8") as f:
+        json.dump(resumen, f, indent=2, ensure_ascii=False)
+    print(f"\nAbstención del agente con el prompt actual: {n}/{len(filas)}")
 
 
 # ───────────────────────── Modo 1b: completar celdas NaN ─────────────────────────
@@ -338,6 +484,9 @@ if __name__ == "__main__":
     ap.add_argument("--compare", nargs=2, metavar=("A", "B"))
     ap.add_argument("--from-log", action="store_true", help="Evalúa interactions.jsonl")
     ap.add_argument("--last", type=int, default=30, help="Con --from-log: últimas N interacciones")
+    ap.add_argument("--agent", action="store_true", help="Evalúa el agente con tools (web apagada) en vez del pipeline fijo")
+    ap.add_argument("--abstencion", action="store_true", help="Solo las preguntas fuera del corpus con el agente actual (sin juez)")
+    ap.add_argument("--costo", action="store_true", help="Compara costo (llamadas LLM, tokens, tiempo) pipeline vs agente")
     ap.add_argument("--rescore", metavar="TAG", help="Re-juzga solo las celdas NaN de ese tag")
     ap.add_argument("--reuse-gen", action="store_true", help="Reutiliza <tag>_gen.json si existe")
     ap.add_argument("--reuse-context-from", metavar="TAG",
@@ -347,6 +496,10 @@ if __name__ == "__main__":
 
     if args.compare:
         compare(*args.compare)
+    elif args.costo:
+        run_costo(args)
+    elif args.abstencion:
+        run_abstencion(args)
     elif args.rescore:
         run_rescore(args.rescore)
     elif args.from_log:

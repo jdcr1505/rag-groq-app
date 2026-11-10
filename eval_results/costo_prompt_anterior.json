@@ -1,0 +1,44 @@
+{
+  "preguntas": 20,
+  "k": 8,
+  "todas": {
+    "n": 20,
+    "pipeline": {
+      "llamadas_llm": 1.0,
+      "tokens": 2268,
+      "segundos": 8.15
+    },
+    "agente": {
+      "llamadas_llm": 2.35,
+      "tokens": 6278,
+      "segundos": 32.0
+    }
+  },
+  "dentro_del_corpus": {
+    "n": 16,
+    "pipeline": {
+      "llamadas_llm": 1.0,
+      "tokens": 2337,
+      "segundos": 8.8
+    },
+    "agente": {
+      "llamadas_llm": 2.06,
+      "tokens": 4937,
+      "segundos": 27.26
+    }
+  },
+  "fuera_del_corpus": {
+    "n": 4,
+    "pipeline": {
+      "llamadas_llm": 1.0,
+      "tokens": 1991,
+      "segundos": 5.54
+    },
+    "agente": {
+      "llamadas_llm": 3.5,
+      "tokens": 11641,
+      "segundos": 50.98
+    }
+  },
+  "nota": "Los segundos incluyen esperas por reintentos ante límites de Groq (429); las llamadas y tokens son más estables."
+}

@@ -1,0 +1,21 @@
+pregunta,en_corpus,pipeline_llamadas,pipeline_tokens,pipeline_segundos,agente_llamadas,agente_tokens,agente_segundos,agente_tools
+"¿En cuántos días debe resolverse, por regla general, una petición presentada ante una autoridad?",True,1,2169,7.32,2,4861,3.51,1
+¿Qué pasa si la autoridad no responde una petición de documentos o de información dentro del plazo?,True,1,2239,1.15,2,4748,32.27,1
+¿Qué recursos proceden contra un acto administrativo definitivo y en qué plazo se interponen la reposición y la apelación?,True,1,2520,15.04,2,4897,25.05,1
+¿Cuánto tiempo tengo para demandar la nulidad y restablecimiento del derecho de un acto administrativo y cuánto para una reparación directa?,True,1,2388,13.39,3,8568,65.29,2
+¿Qué término mínimo de garantía legal tiene un producto nuevo si el productor no indicó uno?,True,1,2095,0.9,2,4558,30.39,1
+"Si mi producto ya fue reparado dos veces por el mismo defecto y falla otra vez, ¿qué puedo exigir?",True,1,2160,10.72,2,4579,26.55,1
+"Compré algo por internet y me arrepentí, ¿puedo devolverlo y en cuánto tiempo me regresan el dinero?",True,1,2504,13.42,2,4651,16.14,1
+¿Qué plazo tiene el responsable de una base de datos para atender una consulta de un titular y se puede prorrogar?,True,1,2243,13.01,2,4729,21.99,1
+¿En cuánto tiempo debe resolverse un reclamo para corregir o suprimir mis datos personales?,True,1,2201,13.39,2,4581,32.86,1
+¿Qué se considera un dato sensible según la ley de protección de datos personales?,True,1,1974,11.77,2,4381,31.24,1
+¿Qué requisitos exige el Código Civil para que una persona se obligue mediante un acto o declaración de voluntad?,True,1,2363,12.77,2,4703,20.82,1
+¿Qué comprende la indemnización de perjuicios y de cuáles perjuicios responde el deudor si no hubo dolo?,True,1,2406,2.88,2,4705,15.89,1
+"Si el juez declara inadmisible mi demanda, ¿cuánto tiempo tengo para corregirla y qué pasa si no lo hago?",True,1,2534,5.59,2,4814,27.62,1
+¿Cuál es la sanción por presentar extemporáneamente una declaración tributaria y cambia si ya hubo emplazamiento?,True,1,2564,13.33,2,4633,34.42,1
+¿En cuánto tiempo queda en firme una declaración tributaria?,True,1,2370,1.37,2,4773,27.65,1
+"Soy inquilino y quiero irme antes de que termine el contrato, ¿qué debo hacer y cuánto me cuesta?",True,1,2662,4.81,2,4817,24.43,1
+¿Cuál es el valor de la UVT para el año 2026?,False,1,1881,0.93,5,18539,98.2,4
+¿Cuántos días de vacaciones remuneradas tiene un trabajador al año?,False,1,2269,13.53,4,13752,61.47,3
+¿Cuál es la pena por el delito de hurto agravado?,False,1,2081,1.09,4,12620,34.44,3
+¿Cuál es la capital de Australia?,False,1,1732,6.61,1,1654,9.79,0

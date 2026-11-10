@@ -465,8 +465,8 @@ function etiquetaUbic(u) {
   return m ? `p. ${m[1]}` : String(u);
 }
 
-// Cita de la búsqueda web: (Web: https://...)
-const WEB_RE = /\(\s*Web:\s*(https?:\/\/[^\s()<>"]+?)\s*\)/gi;
+// Cita de la búsqueda web: [web: https://...] (también acepta el formato antiguo (Web: https://...))
+const WEB_RE = /[\[(]\s*web:\s*(https?:\/\/[^\s()<>"\]]+?)\s*[\])]/gi;
 
 const ICONO_WEB = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 2.5 14.4 0 17M12 3.5c-2.5 2.6-2.5 14.4 0 17"/></svg>';
 
@@ -609,21 +609,39 @@ function renderFuentes(fuentes, citadas, fuentesWeb = []) {
   return det;
 }
 
-// Qué herramientas usó el modelo para responder
+// Qué herramientas usó el modelo para responder, con sus argumentos
+const ETIQUETA_TOOL = { buscar_normativa: "Normativa", web_search: "Web", calcular_plazo: "Plazo" };
+
+function argumentosLegibles(h) {
+  const base = argumentosBase(h);
+  return h.bloqueada ? `${base} (bloqueada por la política)` : base;
+}
+
+function argumentosBase(h) {
+  const a = h.args || {};
+  if (h.nombre === "calcular_plazo") {
+    return `${a.cantidad_dias} días ${a.tipo} desde ${a.fecha_inicio}`;
+  }
+  return a.consulta || h.consulta || "";
+}
+
 function renderHerramientas(herramientas) {
   const p = document.createElement("p");
   p.className = "msg__tools";
   herramientas.forEach((h) => {
+    const esWeb = h.nombre === "web_search";
     const chip = document.createElement("span");
-    chip.className = `tool-chip tool-chip--${h.nombre === "web_search" ? "web" : "doc"}`;
-    chip.innerHTML = h.nombre === "web_search" ? ICONO_WEB : ICONO_DOC;
+    chip.className = `tool-chip tool-chip--${esWeb ? "web" : "doc"}`;
+    chip.innerHTML = esWeb ? ICONO_WEB : ICONO_DOC;
     const etiqueta = document.createElement("span");
-    etiqueta.textContent = h.nombre === "web_search" ? "Web: " : "Normativa: ";
+    etiqueta.textContent = `${ETIQUETA_TOOL[h.nombre] || h.nombre}: `;
     etiqueta.className = "tool-chip__label";
+    const texto = argumentosLegibles(h);
     const consulta = document.createElement("span");
-    consulta.textContent = h.consulta;
+    consulta.textContent = texto;
     chip.append(etiqueta, consulta);
-    chip.title = h.consulta;
+    // Al pasar el cursor se ven el nombre de la tool y todos sus argumentos
+    chip.title = `${h.nombre}(${JSON.stringify(h.args || { consulta: h.consulta })})`;
     p.appendChild(chip);
   });
   return p;
@@ -718,6 +736,7 @@ function completarRespuesta(msg, body, data, pregunta) {
   const usoHerramientas = (data.herramientas || []).length > 0 || data.n_recuperados > 0;
   const partes = [`~${data.tokens_contexto_aprox} tokens de contexto`, `${data.n_recuperados} fragmentos`];
   if (fuentesWeb.length) partes.push(`${fuentesWeb.length} resultados web`);
+  if (data.uso) partes.push(`${data.uso.llamadas_llm} llamadas al LLM · ${data.uso.segundos}s`);
   meta.textContent = data.sin_respuesta
     ? "Sin información en la base de conocimientos"
     : usoHerramientas ? partes.join(" · ") : "Respondida sin consultar documentos";

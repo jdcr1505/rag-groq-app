@@ -10,3 +10,4 @@ chatbotv1/
 interactions.jsonl
 .venv-eval/
 eval_results/
+agent_usage.jsonl
