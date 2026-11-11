@@ -549,6 +549,15 @@ function renderFuentes(fuentes, citadas, fuentesWeb = []) {
   const lista = document.createElement("div");
   lista.className = "sources__list";
 
+  // Las fuentes se agrupan por origen: base de conocimientos y web
+  const grupo = (texto) => {
+    const h = document.createElement("p");
+    h.className = "sources__group";
+    h.textContent = texto;
+    lista.appendChild(h);
+  };
+  if (fuentes.length) grupo(`Base de conocimientos · ${fuentes.length} fragmentos`);
+
   fuentes.forEach((f) => {
     const frag = document.createElement("div");
     frag.className = "fragment";
@@ -582,6 +591,8 @@ function renderFuentes(fuentes, citadas, fuentesWeb = []) {
     frag.append(head, texto);
     lista.appendChild(frag);
   });
+
+  if (fuentesWeb.length) grupo(`Web (sitios oficiales permitidos) · ${fuentesWeb.length} resultados`);
 
   fuentesWeb.forEach((w) => {
     const frag = document.createElement("div");
@@ -625,8 +636,16 @@ function argumentosBase(h) {
   return a.consulta || h.consulta || "";
 }
 
-function renderHerramientas(herramientas) {
-  const p = document.createElement("p");
+function renderHerramientas(herramientas, uso) {
+  // Sección desplegable: qué tools usó el agente y con qué argumentos
+  const det = document.createElement("details");
+  det.className = "tools";
+  const sum = document.createElement("summary");
+  const partes = [`Herramientas usadas (${herramientas.length})`];
+  if (uso && uso.llamadas_llm) partes.push(`${uso.llamadas_llm} llamadas al LLM`);
+  sum.textContent = partes.join(" · ");
+  det.appendChild(sum);
+  const p = document.createElement("div");
   p.className = "msg__tools";
   herramientas.forEach((h) => {
     const esWeb = h.nombre === "web_search";
@@ -641,10 +660,18 @@ function renderHerramientas(herramientas) {
     consulta.textContent = texto;
     chip.append(etiqueta, consulta);
     // Al pasar el cursor se ven el nombre de la tool y todos sus argumentos
-    chip.title = `${h.nombre}(${JSON.stringify(h.args || { consulta: h.consulta })})`;
-    p.appendChild(chip);
+    const llamada = `${h.nombre}(${JSON.stringify(h.args || { consulta: h.consulta })})`;
+    chip.title = llamada;
+    const fila = document.createElement("div");
+    fila.className = "tools__item";
+    const codigo = document.createElement("code");
+    codigo.className = "tools__call";
+    codigo.textContent = llamada;
+    fila.append(chip, codigo);
+    p.appendChild(fila);
   });
-  return p;
+  det.appendChild(p);
+  return det;
 }
 
 function botonCopiar(texto) {
@@ -716,7 +743,7 @@ function completarRespuesta(msg, body, data, pregunta) {
   if (data.sin_respuesta) msg.classList.add("msg--abstain");
 
   if (data.herramientas && data.herramientas.length) {
-    msg.appendChild(renderHerramientas(data.herramientas));
+    msg.appendChild(renderHerramientas(data.herramientas, data.uso));
   } else if (data.pregunta_independiente && data.pregunta_independiente !== pregunta) {
     const re = document.createElement("p");
     re.className = "msg__rewrite";
@@ -747,7 +774,9 @@ function completarRespuesta(msg, body, data, pregunta) {
     const citadas = new Set(
       [...body.querySelectorAll(".cite:not(.cite--web)")].map((c) => `${c.dataset.fuente}|${c.dataset.ubicacion}`)
     );
-    footer.appendChild(renderFuentes(data.fuentes || [], citadas, fuentesWeb));
+    // Si la respuesta solo cita la web, los fragmentos de la base no la respaldan: no se muestran
+    const soloWeb = citadas.size === 0 && fuentesWeb.length > 0 && body.querySelector(".cite--web");
+    footer.appendChild(renderFuentes(soloWeb ? [] : (data.fuentes || []), citadas, fuentesWeb));
   }
   msg.appendChild(footer);
 

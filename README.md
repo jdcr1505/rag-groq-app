@@ -74,7 +74,7 @@ Groq rechaza una tool call mal formada (`tool_use_failed`).
 
 | Herramienta | Tipo | Qué hace y cuándo | Argumentos | Límites en el código |
 |---|---|---|---|---|
-| `buscar_normativa` | Búsqueda | Fragmentos de la base de conocimientos. Se usa **primero** para cualquier pregunta normativa | `consulta: str` | Máx. **8 fragmentos** por llamada (`MAX_FRAGMENTOS_POR_LLAMADA`), aunque la interfaz pida más; cada fragmento se corta a **800 caracteres** (`MAX_CHARS_FRAGMENTO`). Cada fragmento trae documento y página (PDF) o artículo (DOCX/TEX) |
+| `buscar_normativa` | Búsqueda | Fragmentos de la base de conocimientos. Se usa **primero** para cualquier pregunta normativa | `consulta: str` | Máx. **8 fragmentos** por llamada (`MAX_FRAGMENTOS_POR_LLAMADA`), aunque la interfaz pida más; cada fragmento se corta a **800 caracteres** (`MAX_CHARS_FRAGMENTO`); máx. **4 llamadas** por pregunta (`MAX_BUSQUEDAS_BASE`). Cada fragmento trae documento y página (PDF) o artículo (DOCX/TEX) |
 | `calcular_plazo` | Tarea del dominio | Fecha de vencimiento de un plazo con festivos de Colombia (Ley Emiliani y Semana Santa), en `plazos.py`. El LLM extrae los argumentos de la pregunta | `fecha_inicio: AAAA-MM-DD`, `cantidad_dias: int`, `tipo: "habiles"\|"calendario"` | 1 a 3650 días; fecha y tipo validados (un argumento inválido devuelve un mensaje claro, no una excepción) |
 | `web_search` | Web (opcional) | Información pública y actual cuando la base no la tiene | `consulta: str` | Solo 6 dominios; máx. **3 resultados**; extractos de **400 caracteres**; **2 llamadas** por pregunta; solo después de `buscar_normativa` |
 
@@ -357,11 +357,11 @@ Si el puerto 8080 ya está ocupado, detén el contenedor anterior (`docker ps`,
 
 - **Cuenta:** crea una cuenta o inicia sesión desde el landing. Las conversaciones se guardan por usuario y aparecen en la barra lateral: puedes retomarlas, renombrarlas o borrarlas.
 - **Chat conversacional:** admite preguntas de seguimiento ("¿y cuánto me cuesta eso?").
-- **Herramientas usadas:** bajo cada respuesta aparece un chip por herramienta con sus argumentos (p. ej. "Plazo: 15 días habiles desde 2026-03-30"; "(bloqueada por la política)" si el código la rechazó), más el número de llamadas al LLM y los segundos.
+- **Herramientas usadas:** bajo cada respuesta, una sección desplegable «Herramientas usadas» muestra un chip por herramienta y su llamada exacta con los argumentos (p. ej. "Plazo: 15 días habiles desde 2026-03-30"; "(bloqueada por la política)" si el código la rechazó), más el número de llamadas al LLM y los segundos.
 - **Búsqueda web:** interruptor en el panel lateral (requiere `TAVILY_API_KEY`).
 - **Dictado:** botón de micrófono; el navegador pide permiso la primera vez (funciona en `localhost` o HTTPS).
 - **Imagen:** botón para adjuntar una foto; se puede enviar con o sin pregunta.
-- **Fuentes:** cada respuesta incluye un desplegable que separa los fragmentos de la base (documento, página o artículo y texto) de los resultados web (con enlace).
+- **Fuentes:** cada respuesta incluye un desplegable con dos grupos: «Base de conocimientos» (documento, página o artículo y texto) y «Web (sitios oficiales permitidos)» (título y enlace). Si la respuesta solo cita la web, no se muestran los fragmentos de la base, porque no la respaldan.
 - **Fuera del corpus:** responde "No encontré información sobre esto en la base de conocimientos." y no muestra fuentes.
 - **Fragmentos a recuperar:** control de `top_k` de 1 a 15 (la tool aplica un máximo de 8).
 - **Nueva conversación:** crea una conversación nueva con historial vacío.

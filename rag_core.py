@@ -69,6 +69,7 @@ MAX_CHARS_FRAGMENTO = 800        # cada fragmento se corta a este largo (= CHUNK
 WEB_MAX_RESULTADOS = 3           # web_search devuelve como máximo 3 resultados
 WEB_MAX_CHARS_EXTRACTO = 400     # y cada extracto se corta a este largo
 MAX_BUSQUEDAS_WEB = 2            # máximo de llamadas a web_search por pregunta
+MAX_BUSQUEDAS_BASE = 4           # máximo de llamadas a buscar_normativa por pregunta
 # Política "primero la base": la web solo consulta estos sitios oficiales.
 WEB_DOMINIOS_PERMITIDOS = [
     "secretariasenado.gov.co",   # Senado: leyes y códigos con vigencia
@@ -652,6 +653,7 @@ Pregunta del usuario (solo como contexto): {pregunta}"""
 
 MSG_PRIMERO_BASE = "Política 'primero la base': consulta antes buscar_normativa y usa la web solo si no basta."
 MSG_LIMITE_WEB = f"Límite alcanzado: máximo {MAX_BUSQUEDAS_WEB} búsquedas web por pregunta. Responde con lo que ya tienes."
+MSG_LIMITE_BASE = f"Límite alcanzado: máximo {MAX_BUSQUEDAS_BASE} búsquedas en la base por pregunta. Responde con lo que ya tienes."
 
 
 def _normalizar_citas(texto: str) -> str:
@@ -747,12 +749,15 @@ def crear_tools(vector_store, k: int, usar_web: bool, registro: dict) -> list:
         arrendamientos) los fragmentos más relevantes para la consulta. Úsala siempre primero cuando la
         pregunta trate sobre normas, derechos, deberes, plazos, sanciones o trámites.
 
-        Límites: devuelve como máximo 8 fragmentos por llamada y cada fragmento se corta a 800 caracteres.
+        Límites: devuelve como máximo 8 fragmentos por llamada, cada fragmento se corta a 800 caracteres
+        y se puede llamar como máximo 4 veces por pregunta.
         Cada fragmento trae el documento y la página (PDF) o el artículo (DOCX/TEX).
 
         Args:
             consulta: pregunta independiente y completa a buscar, en español.
         """
+        if registro.get("base_llamadas", 0) >= MAX_BUSQUEDAS_BASE:
+            return MSG_LIMITE_BASE
         registro["base_llamadas"] = registro.get("base_llamadas", 0) + 1
         docs = [_truncar_doc(d) for d in vector_store.similarity_search(consulta, k=k_efectivo)]
         docs = docs[:MAX_FRAGMENTOS_POR_LLAMADA]
@@ -937,7 +942,7 @@ def agent_pipeline(
                     herramientas.append({
                         "nombre": tool_call["name"],
                         "args": args,
-                        "bloqueada": str(resultado) in (MSG_PRIMERO_BASE, MSG_LIMITE_WEB),
+                        "bloqueada": str(resultado) in (MSG_PRIMERO_BASE, MSG_LIMITE_WEB, MSG_LIMITE_BASE),
                         # texto corto para la interfaz: la consulta o los argumentos del plazo
                         "consulta": str(args["consulta"]) if "consulta" in args
                         else ", ".join(f"{k_}={v}" for k_, v in args.items()),
