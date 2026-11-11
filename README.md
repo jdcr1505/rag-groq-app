@@ -161,7 +161,6 @@ clásico, que sigue usando la evaluación con Ragas.
 ├─ evaluate_agent.py       # Casos de comportamiento y comparación de costo del agente
 ├─ casos_comportamiento.json # Casos nuevos con el comportamiento esperado
 ├─ logs/agente_tools.jsonl # Registro de uso de tools (NO se sube)
-├─ taller_multimodal/      # Taller de visión y audio (ver su README)
 ├─ eval_dataset.json       # Conjunto de evaluación (20 preguntas, 4 fuera del corpus)
 ├─ eval_results/           # Resultados de las evaluaciones (JSON, CSV, gráfico)
 ├─ requirements.txt        # Dependencias de la app (lo que instala Docker)
