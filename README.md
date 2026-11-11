@@ -534,21 +534,22 @@ limitación del modelo: pedir una búsqueda por tema en el prompt no lo resolvi�
 
 Promedio por pregunta sobre las 20 preguntas (web apagada), medido con
 `python evaluate_ragas.py --costo --sleep 3` a partir de `usage_metadata` de Groq.
+Medición final, con el prompt definitivo (`eval_results/costo_pipeline_vs_agente.json`):
 
 | | Llamadas al LLM | Tokens | Segundos* |
 |---|---|---|---|
-| Pipeline fijo | 1,0 | 2.268 | 8,2 |
-| Agente (todas) | 2,35 | 6.278 | 32,0 |
-| Agente, dentro del corpus (16) | 2,06 | 4.937 | 27,3 |
-| Agente, fuera del corpus (4) | 3,5 | 11.641 | 51,0 |
+| Pipeline fijo | 1,0 | 2.265 | 8,96 |
+| Agente (todas) | 2,6 | 7.832 | 42,01 |
+| Agente, dentro del corpus (16) | 2,06 | 5.029 | 29,59 |
+| Agente, fuera del corpus (4) | 4,75 | 19.045 | 91,69 |
 
 \* Incluyen esperas por límites 429 de Groq; son menos fiables que las llamadas y los
-tokens. Medición hecha antes de la última regla del prompt (la regla de buscar antes de
-responder puede aumentar algo el costo fuera del corpus). El agente cuesta unas 2,2 veces
-más tokens en preguntas normales y hasta 5,8× cuando no hay respuesta en la base, porque
-reformula y repite la búsqueda (la UVT sin web hizo 4 búsquedas y 18.539 tokens). Con el
-límite de 200.000 tokens diarios del plan gratuito de Groq, equivale a unas 88 preguntas
-por día con el pipeline fijo y unas 32 con el agente.
+tokens. En preguntas del corpus el agente cuesta unas 2,2 veces más tokens que el pipeline
+fijo; cuando la base no tiene la respuesta llega a unas 9,5 veces, porque reformula y repite
+la búsqueda (la regla de buscar siempre antes de responder aumentó el costo fuera del corpus:
+en la medición anterior, `costo_prompt_anterior.json`, era 3,5 llamadas y 11.641 tokens). Con
+el límite de 200.000 tokens diarios del plan gratuito de Groq, equivale a unas 88 preguntas
+por día con el pipeline fijo y unas 25 con el agente.
 
 ### 5.6 Uso real (`--from-log`)
 
