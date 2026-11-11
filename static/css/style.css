@@ -1008,6 +1008,21 @@ input[type="range"] {
 }
 .tool-chip__label { flex: none; color: var(--muted); }
 
+/* Herramientas en sección desplegable y fuentes agrupadas por origen */
+.tools { margin-top: 18px; font-size: 12px; }
+.tools > summary { cursor: pointer; color: var(--muted); }
+.tools .msg__tools { flex-direction: column; align-items: flex-start; margin-top: 8px; }
+.tools__item { display: flex; flex-direction: column; gap: 3px; max-width: 100%; }
+.tools__call { font-size: 11px; color: var(--muted); word-break: break-word; padding-left: 10px; }
+.sources__group {
+  margin: 6px 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 /* Resultado web en la lista de fuentes */
 
 .fragment--web a.fragment__doc {
