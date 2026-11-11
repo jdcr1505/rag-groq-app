@@ -85,6 +85,7 @@ norma aplicable puede tener reglas propias.
 Otros límites: `MAX_ITERACIONES = 5` rondas de tools por pregunta (si se agotan, se
 pide la respuesta final con una llamada sin tools) y reintentos con espera ante
 errores 429 de Groq.
+Además, `buscar_normativa` se puede llamar como máximo 4 veces por pregunta (`MAX_BUSQUEDAS_BASE`); al superarlo, la tool devuelve un aviso de límite y el modelo debe responder con lo que ya tiene.
 
 #### Búsqueda web controlada ("primero la base")
 
@@ -660,7 +661,7 @@ Las variables y secretos se conservan entre revisiones.
 - **Web no siempre vigente:** una fuente oficial puede devolver datos históricos (precio del dólar: la DIAN devolvió TRM de 3.588 y 4.369 cuando el valor real ese día era 3.232). Los resultados web no pasan por el corpus curado.
 - **Datos personales:** la consulta que se envía a Tavily la escribe el LLM; el prompt prohíbe incluir datos personales, pero el código no filtra su contenido.
 - **Formato de citas:** el modelo varía el formato entre corridas; se corrige con normalización en código, pero no es una garantía total.
-- **Costo y límites:** el agente usa ~2,2× más tokens que el pipeline (hasta 5,8× fuera del corpus); con el plan gratuito de Groq (200.000 tokens diarios) son unas 32 preguntas por día frente a 88. Los tiempos medidos incluyen esperas por límites 429.
+- **Costo y límites:** en preguntas dentro del corpus el agente usa ~2,2× más tokens que el pipeline fijo (5.029 frente a 2.331); cuando la base no tiene la respuesta llega a ~9,5× (19.045 frente a 2.000), porque repite la búsqueda hasta el tope de 4 por pregunta (`MAX_BUSQUEDAS_BASE`). Con el límite de 200.000 tokens diarios del plan gratuito de Groq son unas 25 preguntas por día frente a 88 con el pipeline fijo. Los tiempos medidos incluyen esperas por límites 429.
 - Solo se evaluó una iteración de prompt del pipeline; las variantes de `top_k` y de chunking quedaron pendientes por los límites del plan gratuito de Groq.
 - Se ingieren PDF, DOCX y TEX; TXT y HTML requerirían añadir su lector. En DOCX y TEX la cita es por artículo (`Art. N`), no por página, y los lectores esperan líneas «Artículo N.» al inicio de cada artículo; sin ellas, el texto se divide por títulos o se cita como un solo bloque. No se leen cuadros de texto, notas al pie ni imágenes de los DOCX, ni fórmulas de los TEX.
 - Las cuentas protegen el acceso al asistente, pero el corpus y el índice son los mismos para todos los usuarios; no hay roles ni administración de usuarios desde la interfaz.
