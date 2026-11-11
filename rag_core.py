@@ -666,6 +666,9 @@ def _normalizar_citas(texto: str) -> str:
     texto = re.sub(r"[\u00a0\u202f\u2007\u2009\u200a]", " ", texto).replace("\u2060", "")
     texto = texto.replace("\u2011", "-").replace("\u2010", "-")  # guiones "no separables" que a veces escribe el modelo
     texto = re.sub(r"\(\s*Fuente:\s*(https?://[^\s()]+)\s*\)", r"[web: \1]", texto)  # (Fuente: URL) -> [web: URL]
+    # (Cálculo: web: URL) o (web: URL) -> [web: URL]: el modelo a veces mezcla el formato del cálculo con el de la web.
+    # El punto final de una oración pegado a la URL no forma parte de ella.
+    texto = re.sub(r"\(\s*(?:Cálculo:\s*)?web:\s*(https?://[^\s()]+?)\.?\s*\)", r"[web: \1]", texto, flags=re.IGNORECASE)
     texto = re.sub(r"【\s*(web:[^】]*?)\s*】", r"[\1]", texto)
     texto = re.sub(r"\s*;\s*Cálculo:\s*calcular_plazo\s*\)", ") (Cálculo: calcular_plazo)", texto)
     texto = re.sub(
